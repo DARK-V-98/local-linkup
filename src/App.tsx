@@ -12,6 +12,7 @@ import About from "./pages/About.tsx";
 import Contact from "./pages/Contact.tsx";
 import Terms from "./pages/Terms.tsx";
 import Privacy from "./pages/Privacy.tsx";
+import Login from "./pages/Login.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/register/buyer" element={<RegisterBuyer />} />
           <Route path="/register/seller" element={<RegisterSeller />} />
