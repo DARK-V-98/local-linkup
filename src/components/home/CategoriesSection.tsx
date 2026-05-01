@@ -28,7 +28,7 @@ export default function CategoriesSection() {
               <span className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-foreground/70 bg-foreground/5 px-2.5 py-1 rounded-full">
                 <i className="fas fa-eye text-[10px]" /> Browse · {cat.count}
               </span>
-            </a>
+            </Link>
           );
         })}
       </div>

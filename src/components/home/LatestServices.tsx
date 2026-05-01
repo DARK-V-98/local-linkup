@@ -41,7 +41,7 @@ export default function LatestServices() {
                   <span className="text-[11px] text-muted-foreground font-bold">{s.type}</span>
                 </div>
               </div>
-            </article>
+            </Link>
           );
         })}
       </div>

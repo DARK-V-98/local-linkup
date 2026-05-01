@@ -50,7 +50,7 @@ export default function TopRatedServices() {
                   </button>
                 </div>
               </div>
-            </article>
+            </Link>
           );
         })}
       </div>
