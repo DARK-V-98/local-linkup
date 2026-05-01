@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
 import { useToast } from "@/hooks/use-toast";
-import { mockCategories } from "@/data/mock";
+import { MOCK_CATEGORIES } from "@/data/mock";
 
 type SellerType = "individual" | "business";
 
