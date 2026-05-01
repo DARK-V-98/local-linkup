@@ -76,7 +76,7 @@ export default function RegisterSeller() {
             <div className="grid md:grid-cols-2 gap-4">
               <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
                 <option value="">Select a category</option>
-                {mockCategories.map((c) => (
+                {MOCK_CATEGORIES.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.name}</option>
                 ))}
               </SelectField>
@@ -97,7 +97,7 @@ export default function RegisterSeller() {
             <div className="grid md:grid-cols-2 gap-4">
               <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
                 <option value="">Select a category</option>
-                {mockCategories.map((c) => (
+                {MOCK_CATEGORIES.map((c) => (
                   <option key={c.slug} value={c.slug}>{c.name}</option>
                 ))}
               </SelectField>
