@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Needlyy — Sri Lanka's Trusted Service Marketplace
 
-TODO: Document your project here
+Find verified local pros for tech, home, tuition, repairs and more. Book trusted services across Sri Lanka.
