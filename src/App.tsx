@@ -13,6 +13,9 @@ import Contact from "./pages/Contact.tsx";
 import Terms from "./pages/Terms.tsx";
 import Privacy from "./pages/Privacy.tsx";
 import Login from "./pages/Login.tsx";
+import AdminDashboard from "./pages/dashboard/AdminDashboard.tsx";
+import SellerDashboard from "./pages/dashboard/SellerDashboard.tsx";
+import BuyerDashboard from "./pages/dashboard/BuyerDashboard.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -31,6 +34,9 @@ const App = () => (
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/dashboard/buyer" element={<BuyerDashboard />} />
+          <Route path="/dashboard/seller" element={<SellerDashboard />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/register/buyer" element={<RegisterBuyer />} />
           <Route path="/register/seller" element={<RegisterSeller />} />

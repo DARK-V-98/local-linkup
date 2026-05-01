@@ -25,7 +25,7 @@ export default function Footer() {
           </div>
         </div>
         {[
-          { title: "Marketplace", links: [["Browse Services", "/browse"], ["Categories", "/browse"], ["Top Sellers", "/browse"]] },
+          { title: "Marketplace", links: [["Browse Services", "/browse"], ["Buyer Dashboard", "/dashboard/buyer"], ["Seller Dashboard", "/dashboard/seller"], ["Admin Panel", "/admin"]] },
           { title: "Company", links: [["About", "/about"], ["Contact", "/contact"], ["Careers", "/contact"]] },
           { title: "Legal", links: [["Terms", "/terms"], ["Privacy", "/privacy"], ["Trust & Safety", "/terms"]] },
         ].map((col) => (
