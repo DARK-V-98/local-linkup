@@ -1,9 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function HeroSection() {
   const [q, setQ] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    navigate(`/browse?q=${encodeURIComponent(q)}`);
+  };
+
   return (
-    <section className="relative pt-28 md:pt-36 pb-20 md:pb-32 overflow-hidden bg-gradient-hero">
+    <section className="relative pt-24 sm:pt-28 md:pt-36 pb-12 sm:pb-20 md:pb-32 overflow-hidden bg-gradient-hero">
       <div className="absolute inset-0 grid-overlay pointer-events-none" />
       {/* Morphing blobs */}
       <div className="absolute -top-20 -left-20 w-80 h-80 bg-primary/15 animate-morph blur-3xl" />
@@ -15,15 +23,15 @@ export default function HeroSection() {
           <div className="inline-flex items-center gap-2 bg-background/70 backdrop-blur border border-border rounded-full px-4 py-1.5 text-xs font-bold text-foreground/80 mb-6 shadow-glass">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" /> Sri Lanka's #1 Service Marketplace
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[0.95]">
-            Find trusted <span className="text-gradient-brand">local pros</span>,<br className="hidden md:block" />
+          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-[1] md:leading-[0.95]">
+            Find trusted <span className="text-gradient-brand">local pros</span>,<br className="hidden sm:block" />
             book in seconds.
           </h1>
-          <p className="mt-5 text-base md:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0">
+          <p className="mt-5 text-sm sm:text-base md:text-lg text-muted-foreground max-w-xl mx-auto lg:mx-0">
             From web developers to plumbers, tutors to wedding photographers — discover verified sellers across every category.
           </p>
 
-          <form className="mt-8 max-w-2xl mx-auto lg:mx-0 bg-background/80 backdrop-blur-xl border border-border rounded-2xl p-2 flex items-center gap-2 shadow-glass" onSubmit={(e) => e.preventDefault()}>
+          <form className="mt-8 max-w-2xl mx-auto lg:mx-0 bg-background/80 backdrop-blur-xl border border-border rounded-2xl p-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-glass" onSubmit={handleSearch}>
             <div className="flex items-center gap-3 px-3 flex-1 min-w-0">
               <i className="fas fa-magnifying-glass text-muted-foreground" />
               <input

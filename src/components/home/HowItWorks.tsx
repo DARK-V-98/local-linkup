@@ -6,14 +6,14 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="relative py-24">
+    <section className="relative py-16 md:py-24">
       <div className="absolute inset-0 dot-pattern opacity-50 pointer-events-none" />
       <div className="container mx-auto relative">
-        <div className="text-center max-w-2xl mx-auto mb-14">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
           <span className="inline-flex items-center gap-2 bg-foreground/5 rounded-full px-4 py-1.5 text-xs font-bold text-foreground/70">
             <i className="fas fa-route text-primary" /> How it works
           </span>
-          <h2 className="mt-4 text-3xl md:text-5xl font-black tracking-tight">From idea to done in 3 simple steps</h2>
+          <h2 className="mt-4 text-2xl sm:text-4xl md:text-5xl font-black tracking-tight">From idea to done in 3 simple steps</h2>
         </div>
 
         <div className="relative grid md:grid-cols-3 gap-8">

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 const navItems = [
   { to: "/", label: "Home" },
-  { to: "/?browse=1", label: "Browse" },
+  { to: "/browse", label: "Browse" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];
@@ -25,11 +25,12 @@ export default function Header() {
       }`}
     >
       <div className="container mx-auto flex h-16 md:h-20 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <span className="grid place-items-center w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground shadow-glass group-hover:scale-110 transition">
-            <i className="fas fa-bolt text-lg" />
-          </span>
-          <span className="text-xl font-black tracking-tight">Needlyy</span>
+        <Link to="/" className="flex items-center gap-2 group">
+          <img 
+            src="/logo.png" 
+            alt="Needlyy" 
+            className="h-12 md:h-14 w-auto object-contain transition-transform duration-300 group-hover:scale-105" 
+          />
         </Link>
 
         <nav className="hidden md:flex items-center gap-1">

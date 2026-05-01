@@ -2,15 +2,16 @@ import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
-    <footer className="relative bg-slate-900 text-slate-300 mt-24">
+    <footer className="relative bg-slate-900 text-slate-300 mt-16 md:mt-24">
       <div className="absolute inset-0 dot-pattern-light opacity-40 pointer-events-none" />
-      <div className="container mx-auto relative py-16 grid grid-cols-2 md:grid-cols-5 gap-10">
+      <div className="container mx-auto relative py-12 md:py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-10">
         <div className="col-span-2">
-          <div className="flex items-center gap-2.5 mb-4">
-            <span className="grid place-items-center w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground">
-              <i className="fas fa-bolt text-lg" />
-            </span>
-            <span className="text-xl font-black text-white">Needlyy</span>
+          <div className="flex items-center gap-2 mb-6">
+            <img 
+              src="/logo.png" 
+              alt="Needlyy" 
+              className="h-12 md:h-14 w-auto object-contain brightness-0 invert" 
+            />
           </div>
           <p className="text-sm text-slate-400 max-w-sm leading-relaxed">
             Sri Lanka's trusted marketplace connecting buyers with verified local pros across every category.
@@ -24,9 +25,9 @@ export default function Footer() {
           </div>
         </div>
         {[
-          { title: "Marketplace", links: [["Browse Services", "/"], ["Categories", "/"], ["Top Sellers", "/"]] },
-          { title: "Company", links: [["About", "/about"], ["Contact", "/contact"], ["Careers", "#"]] },
-          { title: "Legal", links: [["Terms", "#"], ["Privacy", "#"], ["Trust & Safety", "#"]] },
+          { title: "Marketplace", links: [["Browse Services", "/browse"], ["Categories", "/browse"], ["Top Sellers", "/browse"]] },
+          { title: "Company", links: [["About", "/about"], ["Contact", "/contact"], ["Careers", "/contact"]] },
+          { title: "Legal", links: [["Terms", "/terms"], ["Privacy", "/privacy"], ["Trust & Safety", "/terms"]] },
         ].map((col) => (
           <div key={col.title}>
             <h4 className="text-white font-bold mb-4 text-sm">{col.title}</h4>

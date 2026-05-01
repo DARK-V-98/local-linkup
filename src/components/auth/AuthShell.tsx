@@ -20,11 +20,12 @@ export default function AuthShell({ eyebrow, title, subtitle, children, footer, 
 
       <div className="relative container mx-auto px-4 py-8 md:py-12">
         {/* Logo bar */}
-        <Link to="/" className="inline-flex items-center gap-2.5 group">
-          <span className="grid place-items-center w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground shadow-glass group-hover:scale-110 transition">
-            <i className="fas fa-bolt text-lg" />
-          </span>
-          <span className="text-xl font-black tracking-tight">Needlyy</span>
+        <Link to="/" className="inline-flex items-center gap-2 group">
+          <img 
+            src="/logo.png" 
+            alt="Needlyy" 
+            className="h-12 md:h-14 w-auto object-contain transition-transform duration-300 group-hover:scale-105" 
+          />
         </Link>
 
         <div className={`mx-auto ${maxWidth} mt-10 md:mt-14`}>

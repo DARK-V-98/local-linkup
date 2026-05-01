@@ -48,7 +48,7 @@ export default function RegisterSeller() {
       }
     >
       {/* Type toggle */}
-      <div className="grid grid-cols-2 gap-3 p-1.5 bg-foreground/5 rounded-2xl mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-foreground/5 rounded-2xl mb-8">
         <TypeToggle active={type === "individual"} onClick={() => setType("individual")} icon="fa-user" label="Individual" sub="Freelancer / sole trader" />
         <TypeToggle active={type === "business"} onClick={() => setType("business")} icon="fa-building" label="Business" sub="Registered company" />
       </div>

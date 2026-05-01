@@ -1,5 +1,6 @@
 import { MOCK_TOP_SERVICES } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
+import { Link } from "react-router-dom";
 
 const headerGradients = [
   "from-emerald-400 to-green-500",
@@ -10,11 +11,11 @@ const headerGradients = [
 
 export default function TopRatedServices() {
   return (
-    <section className="container mx-auto py-20">
-      <div className="flex items-end justify-between mb-10 flex-wrap gap-4">
+    <section className="container mx-auto py-12 md:py-20">
+      <div className="flex items-end justify-between mb-8 sm:mb-10 flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl md:text-5xl font-black tracking-tight">Top rated services</h2>
-          <p className="mt-2 text-muted-foreground">Hand-picked sellers with the best reviews.</p>
+          <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight">Top rated services</h2>
+          <p className="mt-2 text-sm sm:text-base text-muted-foreground">Hand-picked sellers with the best reviews.</p>
         </div>
       </div>
 
@@ -22,7 +23,7 @@ export default function TopRatedServices() {
         {MOCK_TOP_SERVICES.map((s, i) => {
           const g = headerGradients[i % headerGradients.length];
           return (
-            <article key={s.id} className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all">
+            <Link key={s.id} to="/browse" className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
               <div className={`relative h-40 bg-gradient-to-br ${g} overflow-hidden`}>
                 <i className={`fas ${s.categoryIcon} text-white/30 text-[8rem] absolute -bottom-6 -right-4 group-hover:scale-110 transition`} />
                 <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 px-3 py-1 rounded-full text-[11px] font-bold text-foreground">
