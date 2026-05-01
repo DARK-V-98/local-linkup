@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ReactNode } from "react";
 
 interface AuthShellProps {
-  eyebrow?: string;
+  eyebrow?: ReactNode;
   title: ReactNode;
   subtitle?: string;
   children: ReactNode;
