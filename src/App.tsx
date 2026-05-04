@@ -8,6 +8,7 @@ import RoleSelection from "./pages/RoleSelection.tsx";
 import RegisterBuyer from "./pages/RegisterBuyer.tsx";
 import RegisterSeller from "./pages/RegisterSeller.tsx";
 import Browse from "./pages/Browse.tsx";
+import Feed from "./pages/Feed.tsx";
 import About from "./pages/About.tsx";
 import Contact from "./pages/Contact.tsx";
 import Terms from "./pages/Terms.tsx";
@@ -29,6 +30,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/browse" element={<Browse />} />
+          <Route path="/feed" element={<Feed />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/terms" element={<Terms />} />

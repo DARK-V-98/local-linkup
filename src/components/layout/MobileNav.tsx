@@ -2,10 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 
 const items = [
   { to: "/", icon: "fa-house", label: "Home" },
-  { to: "/?search=1", icon: "fa-magnifying-glass", label: "Search" },
+  { to: "/feed", icon: "fa-stream", label: "Feed" },
 ];
 const right = [
-  { to: "/login", icon: "fa-message", label: "Chat" },
+  { to: "/browse", icon: "fa-magnifying-glass", label: "Browse" },
   { to: "/login", icon: "fa-user", label: "Profile" },
 ];
 
