@@ -29,8 +29,16 @@ export default function Login() {
       
       // Fetch user role to redirect appropriately
       const userDoc = await getDoc(doc(db, "users", user.uid));
+      
       if (userDoc.exists()) {
         const userData = userDoc.data();
+        
+        // Save/Update login details
+        await setDoc(doc(db, "users", user.uid), {
+          lastLogin: new Date().toISOString(),
+          email: user.email, // Ensure email is saved
+        }, { merge: true });
+
         toast({ title: "Welcome back!", description: `Signed in as ${userData.name}` });
         
         // Redirect based on role
@@ -42,6 +50,7 @@ export default function Login() {
           navigate("/dashboard/buyer");
         }
       } else {
+        // If user has auth account but no Firestore doc
         toast({ title: "Profile not found", description: "Please complete your profile setup." });
         navigate("/role-selection");
       }
@@ -71,20 +80,38 @@ export default function Login() {
           const devData = {
             name: user.displayName || "Service Developer",
             email: user.email,
+            avatar: user.photoURL || "",
             role: "Service Developer",
             createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
           };
           await setDoc(doc(db, "users", user.uid), devData);
           toast({ title: "Developer Access Granted", description: "Welcome to the command center." });
-          navigate("/admin"); // Or a specific developer dashboard if created
+          navigate("/admin");
           return;
         }
 
-        // New regular user
+        // New regular user - create skeleton doc so we don't lose them
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          name: user.displayName || "",
+          avatar: user.photoURL || "",
+          lastLogin: new Date().toISOString(),
+          status: "Incomplete"
+        }, { merge: true });
+
         toast({ title: "Account created!", description: "Please select your account type." });
         navigate("/role-selection");
       } else {
         const userData = userDoc.data();
+        
+        // Sync social details for existing users
+        await setDoc(doc(db, "users", user.uid), {
+          lastLogin: new Date().toISOString(),
+          avatar: user.photoURL || userData.avatar || "",
+          name: userData.name || user.displayName || ""
+        }, { merge: true });
+
         toast({ title: "Welcome back!", description: `Signed in as ${userData.name}` });
         
         // Comprehensive Redirection Logic
