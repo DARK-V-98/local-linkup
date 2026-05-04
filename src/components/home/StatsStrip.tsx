@@ -1,7 +1,7 @@
 const stats = [
   { icon: "fa-users", value: "2,500+", label: "Active Sellers" },
   { icon: "fa-circle-check", value: "18,000+", label: "Tasks Completed" },
-  { icon: "fa-grid-2", value: "100+", label: "Categories" },
+  { icon: "fa-table-cells-large", value: "100+", label: "Categories" },
   { icon: "fa-star", value: "4.9 / 5", label: "Average Rating" },
 ];
 
@@ -15,8 +15,8 @@ export default function StatsStrip() {
         <div className="relative grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((s) => (
             <div key={s.label} className="text-center md:text-left">
-              <span className="grid place-items-center md:place-items-start w-12 h-12 rounded-2xl bg-white/10 text-primary-glow mx-auto md:mx-0">
-                <i className={`fas ${s.icon} text-xl pl-0 md:pl-3`} />
+              <span className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 text-primary-glow">
+                <i className={`fas ${s.icon} text-xl leading-none`} />
               </span>
               <div className="text-3xl md:text-4xl font-black text-white mt-3">{s.value}</div>
               <div className="text-sm text-slate-400 font-semibold mt-1">{s.label}</div>
@@ -27,3 +27,4 @@ export default function StatsStrip() {
     </section>
   );
 }
+
