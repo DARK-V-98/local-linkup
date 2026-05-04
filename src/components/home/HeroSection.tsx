@@ -76,7 +76,7 @@ export default function HeroSection() {
             { top: "5%", left: "0%", icon: "fa-star", color: "text-amber-500", label: "Avg Rating", value: "4.9", delay: "0s" },
             { top: "15%", right: "0%", icon: "fa-users", color: "text-secondary", label: "Active Sellers", value: "2,500+", delay: "-2s" },
             { bottom: "12%", left: "4%", icon: "fa-circle-check", color: "text-primary", label: "Tasks Done", value: "18,000+", delay: "-4s" },
-            { bottom: "0%", right: "4%", icon: "fa-grid-2", color: "text-fuchsia-500", label: "Categories", value: "100+", delay: "-1s" },
+            { bottom: "0%", right: "4%", icon: "fa-table-cells-large", color: "text-fuchsia-500", label: "Categories", value: "100+", delay: "-1s" },
           ].map((c, i) => (
             <div
               key={i}
