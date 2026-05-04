@@ -77,7 +77,7 @@ export default function RegisterSeller() {
               <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
                 <option value="">Select a category</option>
                 {MOCK_CATEGORIES.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </SelectField>
               <Field label="Years of experience" name="experience" placeholder="3" icon="fa-clock" type="number" min={0} required />
@@ -98,7 +98,7 @@ export default function RegisterSeller() {
               <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
                 <option value="">Select a category</option>
                 {MOCK_CATEGORIES.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </SelectField>
               <SelectField label="Team size" name="teamSize" icon="fa-people-group" required>
