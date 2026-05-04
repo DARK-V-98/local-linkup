@@ -9,10 +9,10 @@ export interface MockService {
 export const MOCK_CATEGORIES: MockCategory[] = [
   { id: '1', name: 'Technology', icon: 'fas fa-laptop-code', description: 'Web, mobile & IT pros', count: 420 },
   { id: '2', name: 'Home Services', icon: 'fas fa-tools', description: 'Cleaning, plumbing & more', count: 310 },
-  { id: '3', name: 'Education', icon: 'fas fa-book-reader', description: 'Tutors & courses', count: 280 },
-  { id: '4', name: 'Creative', icon: 'fas fa-paint-brush', description: 'Design, art & media', count: 190 },
+  { id: '3', name: 'Education', icon: 'fas fa-book-open-reader', description: 'Tutors & courses', count: 280 },
+  { id: '4', name: 'Creative', icon: 'fas fa-paintbrush', description: 'Design, art & media', count: 190 },
   { id: '5', name: 'Repairs', icon: 'fas fa-wrench', description: 'Quick fixes for anything', count: 240 },
-  { id: '6', name: 'Delivery', icon: 'fas fa-shipping-fast', description: 'Same-day pickups', count: 160 },
+  { id: '6', name: 'Delivery', icon: 'fas fa-truck-fast', description: 'Same-day pickups', count: 160 },
   { id: '7', name: 'Agriculture', icon: 'fas fa-seedling', description: 'Farm & garden experts', count: 90 },
   { id: '8', name: 'Vehicle Service', icon: 'fas fa-car', description: 'Mechanics & detailing', count: 175 },
   { id: '9', name: 'Tuition', icon: 'fas fa-graduation-cap', description: 'Local & online classes', count: 220 },

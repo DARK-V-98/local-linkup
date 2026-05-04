@@ -6,17 +6,17 @@ const roles = [
   {
     id: "buyer",
     to: "/register/buyer",
-    icon: "fa-shopping-bag",
+    icon: "fa-bag-shopping",
     title: "I want to Hire",
     desc: "Discover verified professionals for any task, from design to repairs.",
     perks: ["Access top 5% talent", "Escrow protection", "Real-time collaboration"],
-    color: "from-blue-600 to-indigo-600",
+    color: "from-primary to-primary-glow",
     badge: "For Individuals & Biz",
   },
   {
     id: "seller",
     to: "/register/seller",
-    icon: "fa-briefcase-bolt",
+    icon: "fa-briefcase",
     title: "I want to Sell",
     desc: "Monetize your skills and reach thousands of potential clients today.",
     perks: ["Verified seller badge", "Automated payments", "Global reach tools"],
@@ -31,7 +31,7 @@ export default function RoleSelection() {
 
   return (
     <AuthShell
-      eyebrow={<><i className="fas fa-sparkles" /> Start Your Journey</>}
+      eyebrow={<><i className="fas fa-wand-magic-sparkles" /> Start Your Journey</>}
       title={<>Choose your <span className="text-primary">Needlyy Path.</span></>}
       subtitle="Select the account type that best describes your needs."
       footer={
@@ -75,7 +75,7 @@ export default function RoleSelection() {
               </ul>
 
               <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-primary group-hover:gap-5 transition-all">
-                {mode} as {r.id} <i className="fas fa-arrow-right-long" />
+                {mode} as {r.id} <i className="fas fa-arrow-right" />
               </div>
             </div>
           </Link>

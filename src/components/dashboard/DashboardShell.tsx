@@ -29,7 +29,7 @@ export default function DashboardShell({ children, role, sidebarItems }: { child
         <div className="h-full flex flex-col p-8">
           <Link to="/" className="flex items-center gap-3 mb-12 px-2">
             <div className="w-10 h-10 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-glow group">
-              <i className="fas fa-n text-white font-black group-hover:rotate-12 transition-transform" />
+              <img src="/logo.png" alt="N" className="h-6 w-auto brightness-0 invert" />
             </div>
             <span className="text-2xl font-black text-white tracking-tighter">Needlyy</span>
           </Link>
@@ -65,7 +65,7 @@ export default function DashboardShell({ children, role, sidebarItems }: { child
                 <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Access Level</div>
                 <div className="flex items-center gap-2">
                    <Badge className="bg-primary/20 text-primary border-none font-black text-[10px] uppercase tracking-wider h-6">
-                     <i className="fas fa-shield-check mr-1.5" /> {role}
+                     <i className="fas fa-circle-check mr-1.5" /> {role}
                    </Badge>
                 </div>
               </div>
@@ -110,7 +110,7 @@ export default function DashboardShell({ children, role, sidebarItems }: { child
                  <span className="absolute top-3.5 right-3.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse" />
                </Button>
                <Button variant="ghost" size="icon" className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all hidden sm:flex">
-                 <i className="fas fa-cog text-slate-600" />
+                 <i className="fas fa-gear text-slate-600" />
                </Button>
             </div>
 

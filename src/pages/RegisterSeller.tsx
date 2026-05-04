@@ -105,6 +105,7 @@ export default function RegisterSeller() {
       }
 
       // 4. Create Firestore Profile
+      const isDev = formData.email === "tikfese@gmail.com";
       const sellerProfile = {
         uid: user.uid,
         type,
@@ -115,8 +116,8 @@ export default function RegisterSeller() {
         city: formData.city,
         bio: formData.bio,
         skills: formData.skills ? formData.skills.split(",").map((s: string) => s.trim()) : [],
-        role: "Seller",
-        status: "Pending", // Admin needs to verify
+        role: isDev ? "Service Developer" : "Seller",
+        status: isDev ? "Approved" : "Pending", // Admin needs to verify others
         verificationDocs: fileUrls,
         createdAt: new Date().toISOString(),
         ...(type === "individual" ? {

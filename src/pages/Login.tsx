@@ -34,9 +34,13 @@ export default function Login() {
         toast({ title: "Welcome back!", description: `Signed in as ${userData.name}` });
         
         // Redirect based on role
-        if (userData.role === "Admin") navigate("/admin");
-        else if (userData.role === "Seller") navigate("/dashboard/seller");
-        else navigate("/dashboard/buyer");
+        if (["Admin", "Super Admin", "Service Developer"].includes(userData.role)) {
+          navigate("/admin");
+        } else if (userData.role === "Seller") {
+          navigate("/dashboard/seller");
+        } else {
+          navigate("/dashboard/buyer");
+        }
       } else {
         toast({ title: "Profile not found", description: "Please complete your profile setup." });
         navigate("/role-selection");
@@ -52,32 +56,49 @@ export default function Login() {
     }
   };
 
-  const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
+  const handleSocialLogin = async () => {
     setLoading(true);
     try {
-      const provider = providerName === 'google' 
-        ? new GoogleAuthProvider() 
-        : new FacebookAuthProvider();
-        
+      const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Check if user exists in Firestore
       const userDoc = await getDoc(doc(db, "users", user.uid));
+      
       if (!userDoc.exists()) {
-        // If new user, they need to pick a role
+        // Handle Automatic Role Assignment for Developer
+        if (user.email === "tikfese@gmail.com") {
+          const devData = {
+            name: user.displayName || "Service Developer",
+            email: user.email,
+            role: "Service Developer",
+            createdAt: new Date().toISOString(),
+          };
+          await setDoc(doc(db, "users", user.uid), devData);
+          toast({ title: "Developer Access Granted", description: "Welcome to the command center." });
+          navigate("/admin"); // Or a specific developer dashboard if created
+          return;
+        }
+
+        // New regular user
         toast({ title: "Account created!", description: "Please select your account type." });
         navigate("/role-selection");
       } else {
         const userData = userDoc.data();
         toast({ title: "Welcome back!", description: `Signed in as ${userData.name}` });
-        if (userData.role === "Admin") navigate("/admin");
-        else if (userData.role === "Seller") navigate("/dashboard/seller");
-        else navigate("/dashboard/buyer");
+        
+        // Comprehensive Redirection Logic
+        if (["Admin", "Super Admin", "Service Developer"].includes(userData.role)) {
+          navigate("/admin");
+        } else if (userData.role === "Seller") {
+          navigate("/dashboard/seller");
+        } else {
+          navigate("/dashboard/buyer");
+        }
       }
     } catch (error: any) {
       toast({ 
-        title: `${providerName} login failed`, 
+        title: "Google login failed", 
         description: error.message,
         variant: "destructive"
       });
@@ -137,7 +158,7 @@ export default function Login() {
           disabled={loading}
           className="w-full h-16 bg-gradient-brand text-primary-foreground rounded-2xl font-black text-lg shadow-glow hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-60 flex items-center justify-center gap-3"
         >
-          {loading ? <i className="fas fa-spinner fa-spin" /> : <i className="fas fa-shield-check" />}
+          {loading ? <i className="fas fa-spinner fa-spin" /> : <i className="fas fa-circle-check" />}
           Continue to Dashboard
         </Button>
 
@@ -150,26 +171,18 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Button 
-            variant="outline" 
-            type="button" 
-            disabled={loading}
-            onClick={() => handleSocialLogin('google')}
-            className="h-14 rounded-xl border-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex gap-3"
-          >
-            <i className="fab fa-google text-red-500" /> Google
-          </Button>
-          <Button 
-            variant="outline" 
-            type="button" 
-            disabled={loading}
-            onClick={() => handleSocialLogin('facebook')}
-            className="h-14 rounded-xl border-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex gap-3"
-          >
-            <i className="fab fa-facebook text-blue-600" /> Facebook
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          type="button" 
+          disabled={loading}
+          onClick={handleSocialLogin}
+          className="w-full h-14 rounded-xl border-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-4"
+        >
+          <div className="w-5 h-5 flex items-center justify-center">
+             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-full h-full" />
+          </div>
+          Continue with Google
+        </Button>
       </form>
     </AuthShell>
   );

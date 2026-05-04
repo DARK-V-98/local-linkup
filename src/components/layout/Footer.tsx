@@ -115,8 +115,8 @@ export default function Footer() {
               links: [
                 { label: "Terms of Service", to: "/terms" },
                 { label: "Privacy Policy", to: "/privacy" },
-                { label: "Cookie Policy", to: "/privacy" },
-                { label: "Intellectual Property", to: "/terms" }
+                { label: "Cookie Policy", to: "/cookies" },
+                { label: "Intellectual Property", to: "/intellectual-property" }
               ] 
             },
           ].map((col) => (

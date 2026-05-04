@@ -1,7 +1,7 @@
 const stats = [
   { icon: "fa-users", value: "2.5K+", label: "Verified Pros" },
   { icon: "fa-circle-check", value: "18K+", label: "Successful Tasks" },
-  { icon: "fa-grid-2", value: "120+", label: "Service Categories" },
+  { icon: "fa-table-cells-large", value: "120+", label: "Service Categories" },
   { icon: "fa-star", value: "4.95", label: "User Satisfaction" },
 ];
 
@@ -17,7 +17,7 @@ export default function StatsStrip() {
         <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-10 md:gap-16">
           {stats.map((s, i) => (
             <div key={s.label} className="group flex flex-col items-center lg:items-start text-center lg:text-left">
-              <div className="flex items-center justify-center lg:justify-start w-14 h-14 rounded-2xl bg-white/5 border border-white/10 text-primary group-hover:scale-110 group-hover:bg-primary/10 transition-all duration-500 mb-6">
+              <div className="grid place-items-center w-14 h-14 rounded-2xl bg-white/5 border border-white/10 text-primary group-hover:scale-110 group-hover:bg-primary/10 transition-all duration-500 mb-6">
                 <i className={`fas ${s.icon} text-xl`} />
               </div>
               <div className="flex flex-col gap-1">

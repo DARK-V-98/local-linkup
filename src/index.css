@@ -20,8 +20,8 @@
     --primary-foreground: 0 0% 100%;
     --primary-glow: 152 76% 50%;
 
-    /* Brand blue */
-    --secondary: 221 83% 53%;
+    /* Brand secondary (now green) */
+    --secondary: 160 84% 39%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
@@ -67,7 +67,7 @@
     --popover-foreground: 210 40% 98%;
     --primary: 152 76% 50%;
     --primary-foreground: 222 47% 11%;
-    --secondary: 217 91% 60%;
+    --secondary: 160 84% 39%;
     --secondary-foreground: 0 0% 100%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;

@@ -57,8 +57,8 @@ export default function About() {
 
               <div className="grid sm:grid-cols-2 gap-8">
                 {[
-                  { icon: "fa-shield-check", title: "Strict Verification", desc: "Every professional undergoes a rigorous background and skills assessment." },
-                  { icon: "fa-lock-hashtag", title: "Secure Transactions", desc: "Funds are protected by smart escrow until you're 100% satisfied." },
+                  { icon: "fa-circle-check", title: "Strict Verification", desc: "Every professional undergoes a rigorous background and skills assessment." },
+                  { icon: "fa-lock", title: "Secure Transactions", desc: "Funds are protected by smart escrow until you're 100% satisfied." },
                   { icon: "fa-gem", title: "Premium Quality", desc: "We curate only the top 5% of applicants in each service category." },
                   { icon: "fa-heart", title: "Community Focused", desc: "A portion of our platform fees goes back to supporting local trade education." },
                 ].map((f) => (
@@ -84,7 +84,7 @@ export default function About() {
             <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
               {[
                 { label: "Verified Pros", value: "2.5K+", icon: "fa-user-check" },
-                { label: "Tasks Done", value: "18K+", icon: "fa-check-circle" },
+                { label: "Tasks Done", value: "18K+", icon: "fa-circle-check" },
                 { label: "User Rating", value: "4.95", icon: "fa-star" },
                 { label: "Cities", value: "30+", icon: "fa-location-dot" },
               ].map((s) => (

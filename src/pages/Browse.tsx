@@ -100,7 +100,7 @@ export default function Browse() {
           <aside className="w-full lg:w-80 shrink-0 space-y-10">
             <div>
                <h3 className="text-xs font-black uppercase tracking-widest text-foreground/50 mb-6 flex items-center gap-2">
-                 <i className="fas fa-grid-2 text-[10px]" /> Categories
+                 <i className="fas fa-table-cells-large text-[10px]" /> Categories
                </h3>
                <div className="space-y-1.5">
                  <button
@@ -238,7 +238,7 @@ export default function Browse() {
              {filtered.length === 0 && (
                 <div className="text-center py-32 bg-white rounded-[3rem] border border-dashed border-foreground/10 shadow-soft animate-in fade-in zoom-in duration-500">
                    <div className="w-24 h-24 bg-foreground/5 rounded-[2rem] grid place-items-center mx-auto mb-8">
-                     <i className="fas fa-search-minus text-4xl text-muted-foreground/30" />
+                     <i className="fas fa-magnifying-glass-minus text-4xl text-muted-foreground/30" />
                    </div>
                    <h3 className="text-2xl font-black text-foreground">No matches found</h3>
                    <p className="text-base text-muted-foreground mt-2 max-w-xs mx-auto leading-relaxed">

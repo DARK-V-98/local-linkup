@@ -37,17 +37,18 @@ export default function RegisterBuyer() {
       await updateProfile(user, { displayName: formData.name });
 
       // 3. Create Firestore Profile
+      const isDev = formData.email === "tikfese@gmail.com";
       await setDoc(doc(db, "users", user.uid), {
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
         city: formData.city,
-        role: "Buyer",
+        role: isDev ? "Service Developer" : "Buyer",
         createdAt: new Date().toISOString(),
       });
 
-      toast({ title: "Account created!", description: "Welcome to Needlyy!" });
-      navigate("/dashboard/buyer");
+      toast({ title: isDev ? "Developer Access Active" : "Account created!", description: "Welcome to Needlyy!" });
+      navigate(isDev ? "/admin" : "/dashboard/buyer");
     } catch (error: any) {
       toast({ 
         title: "Registration failed", 
@@ -109,8 +110,15 @@ export default function RegisterBuyer() {
           </div>
         </div>
 
-        <Button variant="outline" type="button" className="w-full h-14 rounded-xl border-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex gap-3">
-          <i className="fab fa-google text-red-500" /> Continue with Google
+        <Button 
+          variant="outline" 
+          type="button" 
+          className="w-full h-14 rounded-xl border-slate-200 font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-4"
+        >
+          <div className="w-5 h-5 flex items-center justify-center">
+             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-full h-full" />
+          </div>
+          Continue with Google
         </Button>
       </form>
     </AuthShell>
