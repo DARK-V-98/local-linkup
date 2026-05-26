@@ -18,4 +18,23 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "firebase-core": ["firebase/app", "firebase/auth"],
+          "firebase-firestore": ["firebase/firestore"],
+          "firebase-storage": ["firebase/storage"],
+          "recharts": ["recharts"],
+          "radix": [
+            "@radix-ui/react-dialog",
+            "@radix-ui/react-dropdown-menu",
+            "@radix-ui/react-tabs",
+            "@radix-ui/react-select",
+          ],
+        },
+      },
+    },
+  },
 }));

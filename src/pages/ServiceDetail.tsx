@@ -7,6 +7,8 @@ import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mo
 import { formatPrice, timeAgo } from "@/lib/format";
 import { addBooking, generateId } from "@/lib/store";
 import { toast } from "sonner";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { getSaved, toggleSaved } from "@/lib/saved";
 
 const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
@@ -61,6 +63,17 @@ export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const service = allServices.find((s) => s.id === id);
+
+  usePageTitle(service ? `${service.title} by ${service.seller}` : "Service Detail");
+
+  const [saved, setSaved] = useState(() => service ? getSaved().includes(service.id) : false);
+
+  const handleSave = () => {
+    if (!service) return;
+    const isNowSaved = toggleSaved(service.id);
+    setSaved(isNowSaved);
+    toast.success(isNowSaved ? "Saved! Find it in your Saved Sellers." : "Removed from saved.");
+  };
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -160,7 +173,16 @@ export default function ServiceDetail() {
                     <i className="fas fa-location-dot mr-1" />{service.location}
                   </span>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black leading-tight">{service.title}</h1>
+                <div className="flex items-start gap-3">
+                  <h1 className="text-2xl md:text-3xl font-black leading-tight flex-1">{service.title}</h1>
+                  <button
+                    onClick={handleSave}
+                    className={`w-10 h-10 rounded-full border grid place-items-center shrink-0 transition hover:scale-110 ${saved ? "text-rose-500 bg-rose-50 border-rose-200" : "text-muted-foreground bg-background border-border hover:border-rose-300 hover:text-rose-400"}`}
+                    title={saved ? "Remove from saved" : "Save this service"}
+                  >
+                    <i className={`${saved ? "fas" : "far"} fa-heart text-sm`} />
+                  </button>
+                </div>
                 <div className="flex flex-wrap items-center gap-4 mt-4">
                   <span className="flex items-center gap-1.5">
                     <StarRating rating={service.rating} />

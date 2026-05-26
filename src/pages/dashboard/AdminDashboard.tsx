@@ -1,6 +1,8 @@
-import DashboardShell from "@/components/dashboard/DashboardShell";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import DashboardShell from "@/components/dashboard/DashboardShell";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -22,6 +24,7 @@ const data = [
 ];
 
 export default function AdminDashboard() {
+  usePageTitle("Admin Dashboard");
   const [activeTab, setActiveTab] = useState("revenue");
 
   return (
@@ -97,7 +100,7 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 shadow-soft overflow-hidden">
           <div className="p-8 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-black text-xl text-slate-900">Verification Queue</h3>
-            <button className="text-sm font-bold text-primary hover:underline">View All</button>
+            <Link to="/admin/verifications" className="text-sm font-bold text-primary hover:underline">View All</Link>
           </div>
           <div className="divide-y divide-slate-50">
             {[
@@ -124,7 +127,7 @@ export default function AdminDashboard() {
                     <i className="fas fa-xmark text-xs" />
                   </button>
                   <div className="w-px h-6 bg-slate-100 mx-1" />
-                  <button className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-800 transition">Review</button>
+                  <Link to="/admin/verifications" className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-800 transition">Review</Link>
                 </div>
               </div>
             ))}
@@ -152,9 +155,9 @@ export default function AdminDashboard() {
               </div>
             ))}
           </div>
-          <button className="w-full mt-10 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition">
-            View System Logs
-          </button>
+          <Link to="/admin/settings" className="w-full mt-10 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition flex items-center justify-center gap-2">
+            <i className="fas fa-terminal text-xs" /> View System Logs
+          </Link>
         </div>
       </div>
     </DashboardShell>

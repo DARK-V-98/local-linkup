@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, StoredBooking } from "@/lib/store";
+import { getBookings, updateBookingStatus, StoredBooking } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "sonner";
+import ReviewModal from "@/components/ReviewModal";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
   { label: "My Bookings", to: "/dashboard/buyer/orders", icon: "fa-bag-shopping" },
   { label: "Saved Sellers", to: "/dashboard/buyer/saved", icon: "fa-heart" },
-  { label: "Payment Methods", to: "/dashboard/buyer/payments", icon: "fa-credit-card" },
-  { label: "Account Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
+  { label: "Payments", to: "/dashboard/buyer/payments", icon: "fa-credit-card" },
+  { label: "Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
 ];
 
 const DEMO_PAST: StoredBooking[] = [
@@ -38,13 +41,24 @@ const STATUS_CONFIG = {
 };
 
 export default function BuyerOrders() {
+  usePageTitle("My Bookings");
   const [tab, setTab] = useState<"active" | "history">("active");
   const [bookings, setBookings] = useState<StoredBooking[]>([]);
+  const [reviewTarget, setReviewTarget] = useState<StoredBooking | null>(null);
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = getBookings();
     setBookings(stored);
   }, []);
+
+  const confirmCancel = (id: string) => {
+    updateBookingStatus(id, "cancelled");
+    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "cancelled" } : b));
+    setCancelingId(null);
+    toast.success("Booking cancelled. A refund will be processed within 3 days.");
+  };
 
   const active = bookings.filter((b) => ["pending", "confirmed", "in_progress"].includes(b.status));
   const history = [...bookings.filter((b) => ["completed", "cancelled"].includes(b.status)), ...DEMO_PAST];
@@ -142,6 +156,30 @@ export default function BuyerOrders() {
                       <span className="ml-auto font-black text-slate-900">{formatPrice(b.price)}</span>
                     </div>
 
+                    {/* Cancel confirmation inline */}
+                    {cancelingId === b.id && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-2">
+                        <p className="text-xs font-bold text-red-700 flex-1">
+                          <i className="fas fa-triangle-exclamation mr-1.5" />
+                          Cancel this booking? This cannot be undone.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => confirmCancel(b.id)}
+                            className="bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-600 transition"
+                          >
+                            Yes, Cancel
+                          </button>
+                          <button
+                            onClick={() => setCancelingId(null)}
+                            className="border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+                          >
+                            Keep Booking
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-2 mt-4">
                       <Link
                         to={`/booking/confirm/${b.id}`}
@@ -150,22 +188,46 @@ export default function BuyerOrders() {
                         <i className="fas fa-receipt text-[10px]" /> View Details
                       </Link>
                       {["pending", "confirmed"].includes(b.status) && (
-                        <a
-                          href={`https://wa.me/${b.vendorPhone.replace(/\D/g, "")}?text=${whatsappMsg}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-[#25D366]/20 transition"
-                        >
-                          <i className="fab fa-whatsapp" /> Contact Vendor
-                        </a>
+                        <>
+                          <a
+                            href={`https://wa.me/${b.vendorPhone.replace(/\D/g, "")}?text=${whatsappMsg}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/30 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-[#25D366]/20 transition"
+                          >
+                            <i className="fab fa-whatsapp" /> Contact Vendor
+                          </a>
+                          {cancelingId !== b.id && (
+                            <button
+                              onClick={() => setCancelingId(b.id)}
+                              className="flex items-center gap-1.5 bg-red-50 text-red-500 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-100 transition"
+                            >
+                              <i className="fas fa-ban text-[10px]" /> Cancel Booking
+                            </button>
+                          )}
+                        </>
                       )}
                       {b.status === "completed" && (
-                        <Link
-                          to={`/service/${b.serviceId}`}
-                          className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-primary/20 transition"
-                        >
-                          <i className="fas fa-rotate-right text-[10px]" /> Book Again
-                        </Link>
+                        <>
+                          <Link
+                            to={`/service/${b.serviceId}`}
+                            className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-primary/20 transition"
+                          >
+                            <i className="fas fa-rotate-right text-[10px]" /> Book Again
+                          </Link>
+                          {!reviewed.has(b.id) ? (
+                            <button
+                              onClick={() => setReviewTarget(b)}
+                              className="flex items-center gap-1.5 bg-amber-50 text-amber-600 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-amber-100 transition"
+                            >
+                              <i className="fas fa-star text-[10px]" /> Leave Review
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
+                              <i className="fas fa-circle-check" /> Reviewed
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -175,6 +237,16 @@ export default function BuyerOrders() {
           })}
         </div>
       )}
+      <ReviewModal
+        open={!!reviewTarget}
+        onClose={() => {
+          if (reviewTarget) setReviewed((prev) => new Set(prev).add(reviewTarget.id));
+          setReviewTarget(null);
+        }}
+        vendorName={reviewTarget?.vendorName ?? ""}
+        serviceName={reviewTarget?.serviceTitle ?? ""}
+        bookingId={reviewTarget?.id ?? ""}
+      />
     </DashboardShell>
   );
 }

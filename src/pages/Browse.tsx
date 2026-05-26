@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { usePageTitle } from "@/lib/usePageTitle";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { MOCK_CATEGORIES, MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, SL_DISTRICTS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
+import { getSaved, toggleSaved } from "@/lib/saved";
 
 const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
@@ -19,6 +21,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function Browse() {
+  usePageTitle("Browse Services");
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [activeCategory, setActiveCategory] = useState(searchParams.get("category") ?? "all");
@@ -28,6 +31,14 @@ export default function Browse() {
   const [maxPrice, setMaxPrice] = useState(200000);
   const [sortBy, setSortBy] = useState("relevant");
   const [showFilters, setShowFilters] = useState(false);
+  const [savedSet, setSavedSet] = useState<Set<string>>(() => new Set(getSaved()));
+
+  const handleSave = (serviceId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSaved(serviceId);
+    setSavedSet(new Set(getSaved()));
+  };
 
   useEffect(() => {
     const q = searchParams.get("q");
@@ -291,7 +302,16 @@ export default function Browse() {
                         <div className="text-[10px] text-muted-foreground font-bold uppercase">From</div>
                         <div className="font-black text-foreground text-sm">{formatPrice(s.price)}</div>
                       </div>
-                      <span className="text-xs text-muted-foreground font-semibold bg-foreground/5 px-2.5 py-1 rounded-full">{s.type}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => handleSave(s.id, e)}
+                          className={`w-7 h-7 rounded-full grid place-items-center transition hover:scale-110 ${savedSet.has(s.id) ? "text-rose-500" : "text-slate-300 hover:text-rose-400"}`}
+                          title={savedSet.has(s.id) ? "Remove from saved" : "Save seller"}
+                        >
+                          <i className={`${savedSet.has(s.id) ? "fas" : "far"} fa-heart text-sm`} />
+                        </button>
+                        <span className="text-xs text-muted-foreground font-semibold bg-foreground/5 px-2.5 py-1 rounded-full">{s.type}</span>
+                      </div>
                     </div>
                   </div>
                 </Link>

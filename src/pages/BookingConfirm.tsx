@@ -6,6 +6,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { getBookingById } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending Confirmation", color: "text-amber-600 bg-amber-50 border-amber-200", icon: "fa-clock" },
@@ -20,6 +21,7 @@ export default function BookingConfirm() {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(id ? getBookingById(id) : null);
   const [showFull, setShowFull] = useState(false);
+  usePageTitle(booking ? `Booking #${booking.id}` : "Booking Confirmed");
 
   useEffect(() => {
     if (id) setBooking(getBookingById(id));

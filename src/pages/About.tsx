@@ -1,8 +1,10 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Link } from "react-router-dom";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function About() {
+  usePageTitle("About Needlyy");
   return (
     <div className="min-h-screen bg-background">
       <Header />

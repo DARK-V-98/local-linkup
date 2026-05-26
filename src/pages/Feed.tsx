@@ -6,8 +6,10 @@ import PostComposer from "@/components/feed/PostComposer";
 import PostCard from "@/components/feed/PostCard";
 import { MOCK_FEED_POSTS } from "@/data/feed";
 import { MOCK_CATEGORIES } from "@/data/mock";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function Feed() {
+  usePageTitle("Service Feed");
   const [filter, setFilter] = useState<string>("All");
 
   const posts = useMemo(() => {

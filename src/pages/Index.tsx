@@ -11,9 +11,13 @@ import HowItWorks from "@/components/home/HowItWorks";
 import TrustSection from "@/components/home/TrustSection";
 import DistrictSection from "@/components/home/DistrictSection";
 import BottomCTA from "@/components/home/BottomCTA";
+import TestimonialsSection from "@/components/home/TestimonialsSection";
+import FaqSection from "@/components/home/FaqSection";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const Index = () => {
+  usePageTitle("Sri Lanka's Trusted Local Service Marketplace");
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
@@ -25,8 +29,10 @@ const Index = () => {
         <HowItWorks />
         <TrustSection />
         <DistrictSection />
+        <TestimonialsSection />
         <SellerCTA />
         <LatestServices />
+        <FaqSection />
         <BottomCTA />
       </main>
       <Footer />

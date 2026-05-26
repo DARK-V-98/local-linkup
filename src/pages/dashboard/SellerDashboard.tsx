@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { formatPrice } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const sellerSidebarItems = [
@@ -22,6 +23,7 @@ const earningsData = [
 ];
 
 export default function SellerDashboard() {
+  usePageTitle("Seller Dashboard");
   return (
     <DashboardShell role="Verified Seller" sidebarItems={sellerSidebarItems}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
@@ -101,7 +103,9 @@ export default function SellerDashboard() {
                 </div>
               ))}
            </div>
-           <button className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs">Open Inbox</button>
+           <Link to="/dashboard/seller/inbox" className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition">
+              <i className="fas fa-inbox" /> Open Inbox
+           </Link>
         </div>
       </div>
 
@@ -110,7 +114,7 @@ export default function SellerDashboard() {
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft overflow-hidden">
           <div className="p-8 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-black text-xl text-slate-900">Recent Orders</h3>
-            <button className="text-sm font-bold text-primary hover:underline">Manage All</button>
+            <Link to="/dashboard/seller/orders" className="text-sm font-bold text-primary hover:underline">Manage All</Link>
           </div>
           <div className="divide-y divide-slate-50">
              {[

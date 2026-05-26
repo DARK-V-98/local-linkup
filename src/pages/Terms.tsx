@@ -1,6 +1,8 @@
 import LegalShell from "@/components/layout/LegalShell";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function Terms() {
+  usePageTitle("Terms of Service");
   return (
     <LegalShell title="Terms of Service" lastUpdated="October 24, 2023">
       <section>

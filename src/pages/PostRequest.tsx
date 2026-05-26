@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { usePageTitle } from "@/lib/usePageTitle";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
@@ -39,6 +40,7 @@ const SAMPLE_POSTS: JobPost[] = [
 ];
 
 export default function PostRequest() {
+  usePageTitle("Post a Job — Get Quotes from Local Pros");
   const [view, setView] = useState<"browse" | "post">("browse");
   const [posts] = useState<JobPost[]>(SAMPLE_POSTS);
   const [filterCat, setFilterCat] = useState("all");

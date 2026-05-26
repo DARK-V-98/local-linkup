@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { usePageTitle } from "@/lib/usePageTitle";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
@@ -97,6 +98,7 @@ const COUNTRIES = [
 ];
 
 export default function Overseas() {
+  usePageTitle("Overseas Sri Lankans — Property & Family Care");
   const [selected, setSelected] = useState("pro");
   const [form, setForm] = useState({ name: "", email: "", phone: "", country: "", propertyDistrict: "", message: "" });
   const [submitting, setSubmitting] = useState(false);

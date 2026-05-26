@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const roles = [
   {
@@ -25,6 +26,7 @@ const roles = [
 ];
 
 export default function RoleSelection() {
+  usePageTitle("Join Needlyy");
   const [params] = useSearchParams();
   const mode = params.get("mode") === "register" ? "Sign up" : "Continue";
 

@@ -1,38 +1,76 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
-import { useToast } from "@/hooks/use-toast";
+import { signUpSeller } from "@/lib/auth";
 import { MOCK_CATEGORIES } from "@/data/mock";
+import { toast } from "sonner";
 
 type SellerType = "individual" | "business";
 
 export default function RegisterSeller() {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const [type, setType] = useState<SellerType>("individual");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  // Persist step-1 data across steps
+  const [step1Data, setStep1Data] = useState({ name: "", email: "", phone: "", password: "" });
 
   const totalSteps = 3;
 
   const next = () => setStep((s) => Math.min(totalSteps, s + 1));
   const back = () => setStep((s) => Math.max(1, s - 1));
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const data = new FormData(e.currentTarget);
+
+    if (step === 1) {
+      const name = data.get("name") as string;
+      const email = data.get("email") as string;
+      const phone = data.get("phone") as string;
+      const password = data.get("password") as string;
+      const confirm = data.get("confirm") as string;
+      if (!name || !email || !phone || !password) { toast.error("Please fill in all required fields."); return; }
+      if (password.length < 6) { toast.error("Password must be at least 6 characters."); return; }
+      if (password !== confirm) { toast.error("Passwords don't match."); return; }
+      setStep1Data({ name, email, phone, password });
+      next();
+      return;
+    }
+
     if (step < totalSteps) {
       next();
       return;
     }
+
+    // Step 3 — final submit
+    const category = (data.get("category") as string) ?? "";
+    const bio = (data.get("bio") as string) ?? "";
+    const city = (data.get("city") as string) ?? "Colombo";
     setLoading(true);
-    setTimeout(() => {
-      toast({
-        title: "Application submitted (preview)",
-        description: "Our admin team will review your verification within 24h.",
+    try {
+      await signUpSeller({
+        name: step1Data.name,
+        email: step1Data.email,
+        phone: step1Data.phone,
+        password: step1Data.password,
+        sellerCategory: category || "General",
+        district: city,
+        bio,
       });
+      toast.success("Application submitted! Our admin team will verify you within 24h.");
+      navigate("/dashboard/seller");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Registration failed.";
+      if (msg.includes("email-already-in-use")) {
+        toast.error("This email is already registered. Try signing in.");
+      } else {
+        toast.error(msg);
+      }
+    } finally {
       setLoading(false);
-      navigate("/");
-    }, 800);
+    }
   };
 
   return (

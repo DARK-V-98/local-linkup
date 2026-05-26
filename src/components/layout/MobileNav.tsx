@@ -20,11 +20,11 @@ export default function MobileNav() {
             {i.label}
           </Link>
         ))}
-        <Link to="/role-selection?mode=register" className="-mt-8 mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-gradient-brand text-primary-foreground shadow-glow animate-pulse-glow">
+        <Link to="/post-request" className="-mt-8 mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-gradient-brand text-primary-foreground shadow-glow animate-pulse-glow">
           <i className="fas fa-plus text-xl" />
         </Link>
         {right.map((i) => (
-          <Link key={i.label} to={i.to} className={`flex flex-col items-center gap-1 text-xs font-semibold ${i.red ? "text-red-500" : "text-muted-foreground"}`}>
+          <Link key={i.label} to={i.to} className={`flex flex-col items-center gap-1 text-xs font-semibold ${i.red ? "text-red-500" : pathname === i.to ? "text-primary" : "text-muted-foreground"}`}>
             <i className={`fas ${i.icon} text-base`} />
             {i.label}
           </Link>

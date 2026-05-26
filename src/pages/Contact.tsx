@@ -1,17 +1,18 @@
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function Contact() {
-  const { toast } = useToast();
+  usePageTitle("Contact & Support");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
-      toast({ title: "Message sent!", description: "We'll get back to you within 24 hours." });
+      toast.success("Message sent! We'll get back to you within 24 hours.");
       setLoading(false);
       (e.target as HTMLFormElement).reset();
     }, 1000);

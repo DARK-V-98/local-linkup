@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getUser, clearUser, AuthUser } from "@/lib/auth";
 import { getLang, setLang, LANG_LABELS, Lang } from "@/lib/lang";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 const navItems = [
   { to: "/", label: "Home" },
   { to: "/browse", label: "Browse" },
+  { to: "/post-request", label: "Post a Job" },
   { to: "/overseas", label: "Overseas" },
   { to: "/feed", label: "Feed" },
   { to: "/about", label: "About" },
@@ -18,6 +19,21 @@ const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/admin",
 };
 
+const ROLE_QUICK_LINKS: Record<string, Array<{ icon: string; label: string; to: string }>> = {
+  buyer: [
+    { icon: "fa-bag-shopping", label: "My Bookings", to: "/dashboard/buyer/orders" },
+    { icon: "fa-heart", label: "Saved Sellers", to: "/dashboard/buyer/saved" },
+  ],
+  seller: [
+    { icon: "fa-briefcase", label: "My Services", to: "/dashboard/seller/services" },
+    { icon: "fa-inbox", label: "Inbox", to: "/dashboard/seller/inbox" },
+  ],
+  admin: [
+    { icon: "fa-user-check", label: "Verifications", to: "/admin/verifications" },
+    { icon: "fa-users", label: "User Management", to: "/admin/users" },
+  ],
+};
+
 export default function Header() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
@@ -25,6 +41,8 @@ export default function Header() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [lang, setLangState] = useState<Lang>(getLang());
   const [showLang, setShowLang] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -34,17 +52,33 @@ export default function Header() {
 
   useEffect(() => {
     setUser(getUser());
-    const onStorage = () => setUser(getUser());
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const onAuthChange = () => setUser(getUser());
+    window.addEventListener("storage", onAuthChange);
+    window.addEventListener("needly-auth-change", onAuthChange);
+    return () => {
+      window.removeEventListener("storage", onAuthChange);
+      window.removeEventListener("needly-auth-change", onAuthChange);
+    };
   }, []);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    if (showUserMenu) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showUserMenu]);
 
   const handleSignOut = () => {
     clearUser();
     setUser(null);
-    toast.success("Signed out.");
-    navigate("/");
+    setShowUserMenu(false);
     setOpen(false);
+    toast.success("Signed out. See you soon!");
+    navigate("/");
   };
 
   const switchLang = (l: Lang) => {
@@ -54,6 +88,7 @@ export default function Header() {
   };
 
   const dashboardTo = user ? (ROLE_DASHBOARD[user.role] ?? "/dashboard/buyer") : "/login";
+  const settingsTo = user ? `${dashboardTo}/settings` : "/login";
 
   return (
     <header
@@ -117,8 +152,12 @@ export default function Header() {
           </Link>
 
           {user ? (
-            <div className="flex items-center gap-2">
-              <Link to={dashboardTo} className="flex items-center gap-2.5 bg-foreground/5 hover:bg-foreground/10 px-3 py-2 rounded-full transition">
+            <div className="relative" ref={userMenuRef}>
+              {/* Trigger pill */}
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2.5 bg-foreground/5 hover:bg-foreground/10 px-3 py-2 rounded-full transition"
+              >
                 <span className="grid place-items-center w-7 h-7 rounded-full bg-gradient-brand text-primary-foreground text-xs font-black">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
@@ -126,10 +165,73 @@ export default function Header() {
                 <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${user.role === "admin" ? "bg-red-100 text-red-600" : user.role === "seller" ? "bg-violet-100 text-violet-600" : "bg-emerald-100 text-emerald-600"}`}>
                   {user.role}
                 </span>
-              </Link>
-              <button onClick={handleSignOut} className="w-8 h-8 rounded-full border border-border grid place-items-center hover:bg-foreground/5 transition" title="Sign out">
-                <i className="fas fa-right-from-bracket text-xs text-muted-foreground" />
+                <i className={`fas fa-chevron-down text-[8px] text-muted-foreground transition-transform duration-200 ${showUserMenu ? "rotate-180" : ""}`} />
               </button>
+
+              {/* Dropdown */}
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-60 bg-background border border-border rounded-2xl shadow-glass overflow-hidden z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
+                  {/* User info header */}
+                  <div className="px-4 py-3 border-b border-border/50 bg-foreground/[0.02]">
+                    <div className="font-bold text-sm text-foreground truncate">{user.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                  </div>
+
+                  <div className="p-2 space-y-0.5">
+                    {/* Dashboard */}
+                    <Link
+                      to={dashboardTo}
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-foreground/5 transition group"
+                    >
+                      <span className="w-8 h-8 rounded-xl bg-primary/10 text-primary grid place-items-center group-hover:bg-primary group-hover:text-primary-foreground transition">
+                        <i className="fas fa-house text-xs" />
+                      </span>
+                      <span className="text-sm font-semibold">My Dashboard</span>
+                    </Link>
+
+                    {/* Role-specific links */}
+                    {(ROLE_QUICK_LINKS[user.role] ?? []).map(({ icon, label, to }) => (
+                      <Link
+                        key={to}
+                        to={to}
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-foreground/5 transition group"
+                      >
+                        <span className="w-8 h-8 rounded-xl bg-foreground/5 text-muted-foreground grid place-items-center group-hover:bg-foreground/10 transition">
+                          <i className={`fas ${icon} text-xs`} />
+                        </span>
+                        <span className="text-sm font-semibold">{label}</span>
+                      </Link>
+                    ))}
+
+                    {/* Settings */}
+                    <Link
+                      to={settingsTo}
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-foreground/5 transition group"
+                    >
+                      <span className="w-8 h-8 rounded-xl bg-foreground/5 text-muted-foreground grid place-items-center group-hover:bg-foreground/10 transition">
+                        <i className="fas fa-gear text-xs" />
+                      </span>
+                      <span className="text-sm font-semibold">Settings</span>
+                    </Link>
+                  </div>
+
+                  {/* Sign out */}
+                  <div className="border-t border-border/50 p-2">
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30 transition group text-left"
+                    >
+                      <span className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 grid place-items-center group-hover:bg-rose-100 transition">
+                        <i className="fas fa-right-from-bracket text-xs" />
+                      </span>
+                      <span className="text-sm font-semibold text-rose-500">Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -169,12 +271,29 @@ export default function Header() {
             <div className="border-t border-border my-2" />
             {user ? (
               <>
+                {/* User info */}
+                <div className="px-4 py-2 flex items-center gap-3">
+                  <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-brand text-primary-foreground text-sm font-black shrink-0">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm truncate">{user.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                  </div>
+                </div>
                 <Link to={dashboardTo} onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl hover:bg-foreground/5 font-semibold flex items-center gap-2">
-                  <span className="grid place-items-center w-7 h-7 rounded-full bg-gradient-brand text-primary-foreground text-xs font-black">{user.name.charAt(0)}</span>
-                  {user.name} ({user.role})
+                  <i className="fas fa-house text-muted-foreground w-4" /> My Dashboard
                 </Link>
-                <button onClick={handleSignOut} className="px-4 py-3 rounded-xl font-semibold text-red-500 text-left hover:bg-red-50 transition">
-                  <i className="fas fa-right-from-bracket mr-2" /> Sign Out
+                {(ROLE_QUICK_LINKS[user.role] ?? []).map(({ icon, label, to }) => (
+                  <Link key={to} to={to} onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl hover:bg-foreground/5 font-semibold flex items-center gap-2">
+                    <i className={`fas ${icon} text-muted-foreground w-4`} /> {label}
+                  </Link>
+                ))}
+                <Link to={settingsTo} onClick={() => setOpen(false)} className="px-4 py-3 rounded-xl hover:bg-foreground/5 font-semibold flex items-center gap-2">
+                  <i className="fas fa-gear text-muted-foreground w-4" /> Settings
+                </Link>
+                <button onClick={handleSignOut} className="px-4 py-3 rounded-xl font-semibold text-rose-500 text-left hover:bg-rose-50 transition flex items-center gap-2">
+                  <i className="fas fa-right-from-bracket w-4" /> Sign Out
                 </button>
               </>
             ) : (

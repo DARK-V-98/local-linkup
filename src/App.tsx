@@ -25,6 +25,19 @@ import SellerOrders from "./pages/dashboard/seller/SellerOrders.tsx";
 import BuyerOrders from "./pages/dashboard/buyer/BuyerOrders.tsx";
 import VendorProfile from "./pages/VendorProfile.tsx";
 import Emergency from "./pages/Emergency.tsx";
+import Overseas from "./pages/Overseas.tsx";
+import PostRequest from "./pages/PostRequest.tsx";
+import AdminVerifications from "./pages/admin/Verifications.tsx";
+import AdminDisputes from "./pages/admin/Disputes.tsx";
+import AdminUsers from "./pages/admin/Users.tsx";
+import AdminServices from "./pages/admin/Services.tsx";
+import AdminSettings from "./pages/admin/Settings.tsx";
+import SellerSettings from "./pages/dashboard/seller/SellerSettings.tsx";
+import SellerEarnings from "./pages/dashboard/seller/SellerEarnings.tsx";
+import BuyerSettings from "./pages/dashboard/buyer/BuyerSettings.tsx";
+import BuyerPayments from "./pages/dashboard/buyer/BuyerPayments.tsx";
+import SavedSellers from "./pages/dashboard/buyer/SavedSellers.tsx";
+import SellerInbox from "./pages/dashboard/seller/SellerInbox.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -55,6 +68,19 @@ const App = () => (
           <Route path="/booking/confirm/:id" element={<BookingConfirm />} />
           <Route path="/vendor/:vendorSlug" element={<VendorProfile />} />
           <Route path="/emergency" element={<Emergency />} />
+          <Route path="/overseas" element={<Overseas />} />
+          <Route path="/post-request" element={<PostRequest />} />
+          <Route path="/admin/verifications" element={<AdminVerifications />} />
+          <Route path="/admin/disputes" element={<AdminDisputes />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/services" element={<AdminServices />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/dashboard/seller/settings" element={<SellerSettings />} />
+          <Route path="/dashboard/seller/earnings" element={<SellerEarnings />} />
+          <Route path="/dashboard/buyer/settings" element={<BuyerSettings />} />
+          <Route path="/dashboard/buyer/payments" element={<BuyerPayments />} />
+          <Route path="/dashboard/buyer/saved" element={<SavedSellers />} />
+          <Route path="/dashboard/seller/inbox" element={<SellerInbox />} />
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/register/buyer" element={<RegisterBuyer />} />
           <Route path="/register/seller" element={<RegisterSeller />} />

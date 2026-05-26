@@ -5,6 +5,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
@@ -26,6 +27,8 @@ export default function VendorProfile() {
     (s) => s.seller.toLowerCase().replace(/[^a-z0-9]/g, "-") === vendorSlug
   );
   const vendor = vendorServices[0];
+
+  usePageTitle(vendor ? `${vendor.seller} — Seller Profile` : "Vendor Profile");
 
   if (!vendor) {
     return (

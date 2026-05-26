@@ -1,14 +1,65 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+const POPULAR_SEARCHES = [
+  { label: "Logo Design", icon: "fa-pen-nib", category: "Creative" },
+  { label: "Web Development", icon: "fa-laptop-code", category: "Technology" },
+  { label: "AC Repair", icon: "fa-snowflake", category: "Repairs" },
+  { label: "House Cleaning", icon: "fa-broom", category: "Home Services" },
+  { label: "Maths Tuition", icon: "fa-calculator", category: "Tuition" },
+  { label: "Wedding Photography", icon: "fa-camera", category: "Creative" },
+  { label: "Plumbing", icon: "fa-wrench", category: "Repairs" },
+  { label: "Delivery Service", icon: "fa-truck", category: "Delivery" },
+  { label: "Yoga Instructor", icon: "fa-spa", category: "Home Services" },
+  { label: "Driving Lessons", icon: "fa-car", category: "Education" },
+  { label: "Graphic Design", icon: "fa-palette", category: "Creative" },
+  { label: "Electrical Work", icon: "fa-bolt", category: "Repairs" },
+];
 
 export default function HeroSection() {
   const [q, setQ] = useState("");
+  const [focused, setFocused] = useState(false);
   const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = q.trim()
+    ? POPULAR_SEARCHES.filter((s) =>
+        s.label.toLowerCase().includes(q.toLowerCase()) ||
+        s.category.toLowerCase().includes(q.toLowerCase())
+      ).slice(0, 6)
+    : POPULAR_SEARCHES.slice(0, 5);
+
+  const showDropdown = focused && suggestions.length > 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate(`/browse?q=${encodeURIComponent(q)}`);
+    if (!q.trim()) return;
+    setFocused(false);
+    navigate(`/browse?q=${encodeURIComponent(q.trim())}`);
   };
+
+  const pickSuggestion = (label: string) => {
+    setQ(label);
+    setFocused(false);
+    navigate(`/browse?q=${encodeURIComponent(label)}`);
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
+        setFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
     <section className="relative pt-24 sm:pt-28 md:pt-36 pb-12 sm:pb-20 md:pb-32 overflow-hidden bg-gradient-hero">
@@ -31,19 +82,83 @@ export default function HeroSection() {
             From web developers to plumbers, tutors to wedding photographers — discover verified sellers across every category.
           </p>
 
-          <form className="mt-8 max-w-2xl mx-auto lg:mx-0 bg-background/80 backdrop-blur-xl border border-border rounded-2xl p-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-glass" onSubmit={handleSearch}>
-            <div className="flex items-center gap-3 px-3 flex-1 min-w-0">
-              <i className="fas fa-magnifying-glass text-muted-foreground" />
-              <input
-                value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="What service are you looking for?"
-                className="bg-transparent outline-none flex-1 py-3 text-sm md:text-base placeholder:text-muted-foreground"
-              />
-            </div>
-            <button className="bg-gradient-brand text-primary-foreground font-bold px-6 py-3 rounded-xl shadow-glow hover:scale-105 transition shrink-0">
-              Search
-            </button>
-          </form>
+          {/* Search with autocomplete */}
+          <div className="mt-8 max-w-2xl mx-auto lg:mx-0 relative">
+            <form
+              className="bg-background/80 backdrop-blur-xl border border-border rounded-2xl p-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-glass"
+              onSubmit={handleSearch}
+            >
+              <div className="flex items-center gap-3 px-3 flex-1 min-w-0">
+                <i className="fas fa-magnifying-glass text-muted-foreground" />
+                <input
+                  ref={inputRef}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  placeholder="What service are you looking for?"
+                  className="bg-transparent outline-none flex-1 py-3 text-sm md:text-base placeholder:text-muted-foreground"
+                  autoComplete="off"
+                />
+                {q && (
+                  <button
+                    type="button"
+                    onClick={() => { setQ(""); inputRef.current?.focus(); }}
+                    className="text-muted-foreground hover:text-foreground transition"
+                  >
+                    <i className="fas fa-xmark text-sm" />
+                  </button>
+                )}
+              </div>
+              <button className="bg-gradient-brand text-primary-foreground font-bold px-6 py-3 rounded-xl shadow-glow hover:scale-105 transition shrink-0">
+                Search
+              </button>
+            </form>
+
+            {/* Autocomplete dropdown */}
+            {showDropdown && (
+              <div
+                ref={dropdownRef}
+                className="absolute top-full mt-2 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border border-border rounded-2xl shadow-glass overflow-hidden"
+              >
+                <div className="px-4 pt-3 pb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {q.trim() ? "Matching services" : "Popular searches"}
+                  </p>
+                </div>
+                <ul className="pb-2">
+                  {suggestions.map((s) => (
+                    <li key={s.label}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                        onClick={() => pickSuggestion(s.label)}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-foreground/5 transition text-left group"
+                      >
+                        <span className="w-8 h-8 rounded-xl bg-primary/10 text-primary grid place-items-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition">
+                          <i className={`fas ${s.icon} text-xs`} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-bold text-foreground">{s.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{s.category}</span>
+                        </div>
+                        <i className="fas fa-arrow-up-left text-muted-foreground text-xs opacity-0 group-hover:opacity-100 transition rotate-0" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="px-4 py-2 border-t border-border">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => navigate("/browse")}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <i className="fas fa-th-large text-[10px]" /> Browse all categories
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="mt-7 flex flex-wrap justify-center lg:justify-start gap-2.5">
             {[

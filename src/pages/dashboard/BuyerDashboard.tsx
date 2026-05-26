@@ -1,13 +1,15 @@
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { formatPrice } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
   { label: "My Bookings", to: "/dashboard/buyer/orders", icon: "fa-bag-shopping" },
-  { label: "Payment Methods", to: "/dashboard/buyer/payments", icon: "fa-credit-card" },
-  { label: "Account Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
+  { label: "Saved Sellers", to: "/dashboard/buyer/saved", icon: "fa-heart" },
+  { label: "Payments", to: "/dashboard/buyer/payments", icon: "fa-credit-card" },
+  { label: "Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
 ];
 
 const spendingData = [
@@ -17,6 +19,7 @@ const spendingData = [
 ];
 
 export default function BuyerDashboard() {
+  usePageTitle("Buyer Dashboard");
   return (
     <DashboardShell role="Premium Buyer" sidebarItems={buyerSidebarItems}>
       <div className="mb-10">
@@ -124,7 +127,9 @@ export default function BuyerDashboard() {
                  <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Needlyy Wallet</div>
                  <div className="text-3xl font-black">{formatPrice(12400)}</div>
                  <p className="text-[10px] text-slate-500 mt-4 leading-relaxed">Available for your next booking. Top up to get 5% cashback on local services.</p>
-                 <button className="w-full mt-6 py-3 bg-white text-slate-900 rounded-xl font-bold text-sm shadow-glow">Top up Wallet</button>
+                 <Link to="/dashboard/buyer/payments" className="w-full mt-6 py-3 bg-white text-slate-900 rounded-xl font-bold text-sm shadow-glow flex items-center justify-center gap-2 hover:bg-slate-50 transition">
+                   <i className="fas fa-plus-circle" /> Top up Wallet
+                 </Link>
               </div>
            </div>
 
@@ -148,7 +153,9 @@ export default function BuyerDashboard() {
                    </div>
                  ))}
               </div>
-              <button className="w-full mt-8 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition">View All Saved</button>
+              <Link to="/dashboard/buyer/saved" className="w-full mt-8 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition flex items-center justify-center gap-2">
+                <i className="fas fa-heart text-rose-400 text-xs" /> View All Saved
+              </Link>
            </div>
         </div>
       </div>

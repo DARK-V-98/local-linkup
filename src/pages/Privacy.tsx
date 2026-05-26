@@ -1,6 +1,8 @@
 import LegalShell from "@/components/layout/LegalShell";
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function Privacy() {
+  usePageTitle("Privacy Policy");
   return (
     <LegalShell title="Privacy Policy" lastUpdated="October 24, 2023">
       <section>

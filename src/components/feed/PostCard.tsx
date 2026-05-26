@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { FeedPost } from "@/data/feed";
 import { formatPrice, timeAgo } from "@/lib/format";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface Props {
   post: FeedPost;
 }
 
 export default function PostCard({ post }: Props) {
-  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(post.likes);
   const [showComments, setShowComments] = useState(false);
@@ -28,7 +27,7 @@ export default function PostCard({ post }: Props) {
         await navigator.share({ title: post.title, text: post.description, url });
       } else {
         await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied", description: "Share it anywhere you like." });
+        toast.success("Link copied — share it anywhere you like.");
       }
     } catch {
       /* user cancelled */

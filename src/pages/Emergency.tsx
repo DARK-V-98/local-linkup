@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { usePageTitle } from "@/lib/usePageTitle";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
@@ -23,6 +24,7 @@ const NEARBY_VENDORS = [
 ];
 
 export default function Emergency() {
+  usePageTitle("Emergency Dispatch");
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState("");
