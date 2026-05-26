@@ -8,7 +8,10 @@ import TopRatedServices from "@/components/home/TopRatedServices";
 import SellerCTA from "@/components/home/SellerCTA";
 import LatestServices from "@/components/home/LatestServices";
 import HowItWorks from "@/components/home/HowItWorks";
+import TrustSection from "@/components/home/TrustSection";
+import DistrictSection from "@/components/home/DistrictSection";
 import BottomCTA from "@/components/home/BottomCTA";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 const Index = () => {
   return (
@@ -19,13 +22,16 @@ const Index = () => {
         <CategoriesSection />
         <StatsStrip />
         <TopRatedServices />
+        <HowItWorks />
+        <TrustSection />
+        <DistrictSection />
         <SellerCTA />
         <LatestServices />
-        <HowItWorks />
         <BottomCTA />
       </main>
       <Footer />
       <MobileNav />
+      <WhatsAppButton />
     </div>
   );
 };

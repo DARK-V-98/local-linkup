@@ -19,7 +19,7 @@ export default function LatestServices() {
         {MOCK_LATEST_SERVICES.map((s, i) => {
           const g = SERVICE_GRADIENTS[i % SERVICE_GRADIENTS.length];
           return (
-            <Link key={s.id} to="/browse" className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
+            <Link key={s.id} to={`/service/${s.id}`} className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
               <div className={`relative h-32 bg-gradient-to-br ${g} overflow-hidden`}>
                 <i className={`fas ${s.categoryIcon} text-white/30 text-7xl absolute -bottom-2 -right-2 group-hover:rotate-12 transition`} />
                 <span className="absolute top-3 left-3 bg-white/95 text-foreground text-[10px] font-bold uppercase px-2.5 py-1 rounded-full">

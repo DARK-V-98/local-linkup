@@ -2,11 +2,11 @@ import { Link, useLocation } from "react-router-dom";
 
 const items = [
   { to: "/", icon: "fa-house", label: "Home" },
-  { to: "/feed", icon: "fa-bars-staggered", label: "Feed" },
+  { to: "/browse", icon: "fa-magnifying-glass", label: "Browse" },
 ];
 const right = [
-  { to: "/browse", icon: "fa-magnifying-glass", label: "Browse" },
-  { to: "/login", icon: "fa-user", label: "Profile" },
+  { to: "/emergency", icon: "fa-triangle-exclamation", label: "Emergency", red: true },
+  { to: "/login", icon: "fa-user", label: "Profile", red: false },
 ];
 
 export default function MobileNav() {
@@ -24,7 +24,7 @@ export default function MobileNav() {
           <i className="fas fa-plus text-xl" />
         </Link>
         {right.map((i) => (
-          <Link key={i.label} to={i.to} className="flex flex-col items-center gap-1 text-xs font-semibold text-muted-foreground">
+          <Link key={i.label} to={i.to} className={`flex flex-col items-center gap-1 text-xs font-semibold ${i.red ? "text-red-500" : "text-muted-foreground"}`}>
             <i className={`fas ${i.icon} text-base`} />
             {i.label}
           </Link>

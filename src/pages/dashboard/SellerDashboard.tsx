@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { formatPrice } from "@/lib/format";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -7,7 +8,6 @@ const sellerSidebarItems = [
   { label: "My Services", to: "/dashboard/seller/services", icon: "fa-briefcase" },
   { label: "Orders", to: "/dashboard/seller/orders", icon: "fa-cart-flatbed" },
   { label: "Earnings", to: "/dashboard/seller/earnings", icon: "fa-wallet" },
-  { label: "Inbox", to: "/dashboard/seller/inbox", icon: "fa-message" },
   { label: "Settings", to: "/dashboard/seller/settings", icon: "fa-user-gear" },
 ];
 
@@ -29,9 +29,9 @@ export default function SellerDashboard() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Seller Dashboard</h1>
           <p className="text-slate-500 font-medium">Keep it up! Your response rate is 98% this week.</p>
         </div>
-        <button className="bg-gradient-brand text-primary-foreground px-6 py-3 rounded-2xl font-bold shadow-glow hover:scale-105 transition flex items-center gap-2">
+        <Link to="/dashboard/seller/new-service" className="bg-gradient-brand text-primary-foreground px-6 py-3 rounded-2xl font-bold shadow-glow hover:scale-105 transition flex items-center gap-2">
           <i className="fas fa-plus" /> Create New Service
-        </button>
+        </Link>
       </div>
 
       {/* Stats Grid */}

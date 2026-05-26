@@ -23,7 +23,7 @@ export default function TopRatedServices() {
         {MOCK_TOP_SERVICES.map((s, i) => {
           const g = headerGradients[i % headerGradients.length];
           return (
-            <Link key={s.id} to="/browse" className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
+            <Link key={s.id} to={`/service/${s.id}`} className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
               <div className={`relative h-40 bg-gradient-to-br ${g} overflow-hidden`}>
                 <i className={`fas ${s.categoryIcon} text-white/30 text-[8rem] absolute -bottom-6 -right-4 group-hover:scale-110 transition`} />
                 <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 px-3 py-1 rounded-full text-[11px] font-bold text-foreground">

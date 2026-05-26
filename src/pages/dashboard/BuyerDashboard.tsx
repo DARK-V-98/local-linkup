@@ -1,12 +1,11 @@
+import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { formatPrice } from "@/lib/format";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
-  { label: "My Orders", to: "/dashboard/buyer/orders", icon: "fa-bag-shopping" },
-  { label: "Saved Items", to: "/dashboard/buyer/saved", icon: "fa-heart" },
-  { label: "Chat Inbox", to: "/dashboard/buyer/inbox", icon: "fa-comments" },
+  { label: "My Bookings", to: "/dashboard/buyer/orders", icon: "fa-bag-shopping" },
   { label: "Payment Methods", to: "/dashboard/buyer/payments", icon: "fa-credit-card" },
   { label: "Account Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
 ];
@@ -32,7 +31,7 @@ export default function BuyerDashboard() {
           <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft p-8">
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-black text-xl text-slate-900">Active Bookings</h3>
-              <button className="text-sm font-bold text-primary hover:underline">See History</button>
+              <Link to="/dashboard/buyer/orders" className="text-sm font-bold text-primary hover:underline">See All</Link>
             </div>
             <div className="space-y-4">
                {[
@@ -67,15 +66,15 @@ export default function BuyerDashboard() {
           <div className="grid sm:grid-cols-3 gap-4">
              {[
                { label: "Find new Pro", icon: "fa-magnifying-glass", to: "/browse", color: "text-blue-500", bg: "bg-blue-50" },
-               { label: "Contact Support", icon: "fa-headset", to: "/contact", color: "text-emerald-500", bg: "bg-emerald-50" },
-               { label: "Post a Request", icon: "fa-bullhorn", to: "/contact", color: "text-amber-500", bg: "bg-amber-50" },
+               { label: "Emergency Help", icon: "fa-triangle-exclamation", to: "/emergency", color: "text-red-500", bg: "bg-red-50" },
+               { label: "My Bookings", icon: "fa-list-check", to: "/dashboard/buyer/orders", color: "text-emerald-500", bg: "bg-emerald-50" },
              ].map((a) => (
-               <button key={a.label} className="p-6 bg-white border border-slate-200 rounded-3xl shadow-soft hover:shadow-glow transition text-center group">
+               <Link key={a.label} to={a.to} className="p-6 bg-white border border-slate-200 rounded-3xl shadow-soft hover:shadow-glow transition text-center group">
                   <div className={`w-12 h-12 ${a.bg} ${a.color} rounded-2xl grid place-items-center mx-auto mb-3 group-hover:scale-110 transition`}>
                      <i className={`fas ${a.icon}`} />
                   </div>
                   <div className="text-sm font-bold text-slate-700">{a.label}</div>
-               </button>
+               </Link>
              ))}
           </div>
         </div>
