@@ -5,6 +5,9 @@ import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
 import { addNotification } from "@/components/NotificationsDropdown";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToBookingsBySeller } from "@/lib/firestore/bookings";
+import { getUser } from "@/lib/auth";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -55,7 +58,34 @@ export default function SellerOrders() {
     setOrders(getBookings());
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    const user = getUser();
+    if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+      const unsub = subscribeToBookingsBySeller(user.id, (firestoreOrders) => {
+        const local = getBookings();
+        const fsIds = new Set(firestoreOrders.map((b) => b.id));
+        const merged = [...firestoreOrders, ...local.filter((b) => !fsIds.has(b.id))];
+        setOrders(merged);
+      });
+      return unsub;
+    } else {
+      refresh();
+      // Live cross-tab + same-tab sync for localStorage/demo mode
+      const onChange = () => refresh();
+      window.addEventListener("needly-bookings-change", onChange);
+      let bc: BroadcastChannel | undefined;
+      try {
+        bc = new BroadcastChannel("needly-sync");
+        bc.onmessage = (e) => { if (e.data?.type === "bookings-change") onChange(); };
+      } catch { /* BroadcastChannel unsupported */ }
+      window.addEventListener("storage", onChange);
+      return () => {
+        window.removeEventListener("needly-bookings-change", onChange);
+        window.removeEventListener("storage", onChange);
+        bc?.close();
+      };
+    }
+  }, []);
 
   const changeStatus = (id: string, status: StoredBooking["status"]) => {
     updateBookingStatus(id, status);

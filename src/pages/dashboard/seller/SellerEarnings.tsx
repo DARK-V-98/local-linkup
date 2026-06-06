@@ -7,6 +7,32 @@ import {
 import { formatPrice } from "@/lib/format";
 import { toast } from "sonner";
 import { getBookings, StoredBooking } from "@/lib/store";
+import { usePageTitle } from "@/lib/usePageTitle";
+
+// Payout history — localStorage persisted
+interface PayoutRecord {
+  id: string;
+  amount: number;
+  bank: string;
+  accountNo: string;
+  requestedAt: string;
+  status: "pending" | "processing" | "completed" | "rejected";
+}
+const PAYOUT_KEY = "needly_payout_history";
+function getPayouts(): PayoutRecord[] {
+  try { return JSON.parse(localStorage.getItem(PAYOUT_KEY) ?? "[]"); } catch { return []; }
+}
+function savePayout(p: PayoutRecord) {
+  const all = getPayouts();
+  all.unshift(p);
+  localStorage.setItem(PAYOUT_KEY, JSON.stringify(all));
+}
+
+const SL_BANKS = [
+  "Bank of Ceylon (BOC)", "People's Bank", "Commercial Bank", "Sampath Bank",
+  "HNB (Hatton National Bank)", "NSB (National Savings Bank)", "Seylan Bank",
+  "NDB Bank", "Pan Asia Bank", "Amana Bank", "DFCC Bank", "Nations Trust Bank",
+];
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -64,9 +90,19 @@ function buildTopServices(bookings: StoredBooking[]) {
 }
 
 export default function SellerEarnings() {
+  usePageTitle("My Earnings");
   const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [requestingPayout, setRequestingPayout] = useState(false);
   const [bookings, setBookings] = useState<StoredBooking[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRecord[]>(getPayouts());
+  const [payoutForm, setPayoutForm] = useState({
+    bank: "",
+    accountNo: "",
+    accountName: "",
+    branch: "",
+    amount: "",
+  });
 
   useEffect(() => { setBookings(getBookings()); }, []);
 
@@ -84,12 +120,32 @@ export default function SellerEarnings() {
     ? Math.round(((currentMonth.net - prevMonth.net) / prevMonth.net) * 100)
     : 0;
 
-  const requestPayout = () => {
+  const submitPayout = () => {
+    if (!payoutForm.bank || !payoutForm.accountNo || !payoutForm.accountName) {
+      toast.error("Please fill in all bank details.");
+      return;
+    }
+    const amount = parseInt(payoutForm.amount) || totalNet;
+    if (amount > totalNet) { toast.error("Payout amount exceeds available balance."); return; }
+    if (amount < 500)       { toast.error("Minimum payout is Rs. 500."); return; }
+
     setRequestingPayout(true);
     setTimeout(() => {
+      const record: PayoutRecord = {
+        id: "PO-" + Date.now(),
+        amount,
+        bank: payoutForm.bank,
+        accountNo: payoutForm.accountNo,
+        requestedAt: new Date().toISOString(),
+        status: "pending",
+      };
+      savePayout(record);
+      setPayouts(getPayouts());
       setRequestingPayout(false);
-      toast.success("Payout requested! Funds will arrive within 1–2 business days.");
-    }, 1200);
+      setShowPayoutModal(false);
+      setPayoutForm({ bank: "", accountNo: "", accountName: "", branch: "", amount: "" });
+      toast.success(`Payout of ${formatPrice(amount)} requested! Arrives in 1–2 business days.`);
+    }, 1400);
   };
 
   const hasData = completed.length > 0;
@@ -102,12 +158,11 @@ export default function SellerEarnings() {
           <p className="text-slate-500 font-medium mt-1">Your income summary and payout history.</p>
         </div>
         <button
-          onClick={requestPayout}
-          disabled={requestingPayout || !hasData}
+          onClick={() => setShowPayoutModal(true)}
+          disabled={!hasData || totalNet === 0}
           className="flex items-center gap-2 bg-gradient-brand text-primary-foreground px-6 py-3 rounded-2xl font-bold shadow-glow hover:scale-105 transition disabled:opacity-70 disabled:scale-100"
         >
-          {requestingPayout ? <i className="fas fa-spinner fa-spin" /> : <i className="fas fa-bolt" />}
-          {requestingPayout ? "Processing..." : "Request Payout"}
+          <i className="fas fa-bolt" /> Request Payout
         </button>
       </div>
 
@@ -281,20 +336,167 @@ export default function SellerEarnings() {
         </>
       )}
 
-      {/* Payout history placeholder */}
+      {/* Payout history */}
       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <h3 className="font-black text-slate-900">Payout History</h3>
-          <button onClick={() => toast.info("Add a bank account in Settings to change your payout method.")} className="text-sm font-bold text-primary hover:underline">
-            <i className="fas fa-bank mr-1" /> Payout Settings
+          <button
+            onClick={() => setShowPayoutModal(true)}
+            disabled={!hasData || totalNet === 0}
+            className="text-sm font-bold text-primary hover:underline disabled:opacity-40"
+          >
+            <i className="fas fa-plus mr-1" /> Request Payout
           </button>
         </div>
-        <div className="text-center py-12 text-slate-400">
-          <i className="fas fa-building-columns text-4xl mb-3" />
-          <p className="text-sm font-semibold">No payouts processed yet.</p>
-          <p className="text-xs mt-1">Complete orders and request a payout to see your history here.</p>
-        </div>
+        {payouts.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <i className="fas fa-building-columns text-4xl mb-3" />
+            <p className="text-sm font-semibold">No payouts requested yet.</p>
+            <p className="text-xs mt-1">Complete orders then request a payout to see history here.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {payouts.map((p) => (
+              <div key={p.id} className="flex items-center justify-between p-5 hover:bg-slate-50 transition">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl grid place-items-center shrink-0 ${
+                    p.status === "completed"  ? "bg-emerald-50 text-emerald-600" :
+                    p.status === "processing" ? "bg-blue-50 text-blue-600" :
+                    p.status === "rejected"   ? "bg-rose-50 text-rose-500" :
+                    "bg-amber-50 text-amber-600"
+                  }`}>
+                    <i className={`fas ${
+                      p.status === "completed"  ? "fa-circle-check" :
+                      p.status === "processing" ? "fa-spinner" :
+                      p.status === "rejected"   ? "fa-xmark" :
+                      "fa-clock"
+                    } text-sm`} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900 text-sm">{p.bank}</div>
+                    <div className="text-xs text-slate-400">
+                      Account ****{p.accountNo.slice(-4)} ·{" "}
+                      {new Date(p.requestedAt).toLocaleDateString("en-LK", { day: "numeric", month: "short", year: "numeric" })}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-black text-slate-900 text-sm">{formatPrice(p.amount)}</div>
+                  <div className={`text-[10px] font-bold uppercase mt-0.5 capitalize ${
+                    p.status === "completed"  ? "text-emerald-500" :
+                    p.status === "processing" ? "text-blue-500" :
+                    p.status === "rejected"   ? "text-rose-500" :
+                    "text-amber-500"
+                  }`}>{p.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Payout Request Modal */}
+      {showPayoutModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-black text-slate-900 text-lg">Request Payout</h3>
+              <button onClick={() => setShowPayoutModal(false)} className="w-8 h-8 rounded-xl bg-slate-100 grid place-items-center hover:bg-slate-200 transition">
+                <i className="fas fa-xmark text-slate-500 text-sm" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Available balance */}
+              <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase">Available Balance</div>
+                  <div className="text-2xl font-black text-slate-900 mt-0.5">{formatPrice(totalNet)}</div>
+                </div>
+                <i className="fas fa-wallet text-3xl text-slate-200" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Bank *</label>
+                <select
+                  value={payoutForm.bank}
+                  onChange={(e) => setPayoutForm({ ...payoutForm, bank: e.target.value })}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">Select your bank</option>
+                  {SL_BANKS.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Account Number *</label>
+                  <input
+                    value={payoutForm.accountNo}
+                    onChange={(e) => setPayoutForm({ ...payoutForm, accountNo: e.target.value })}
+                    placeholder="e.g. 0123456789"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Branch</label>
+                  <input
+                    value={payoutForm.branch}
+                    onChange={(e) => setPayoutForm({ ...payoutForm, branch: e.target.value })}
+                    placeholder="e.g. Colombo 03"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Account Holder Name *</label>
+                <input
+                  value={payoutForm.accountName}
+                  onChange={(e) => setPayoutForm({ ...payoutForm, accountName: e.target.value })}
+                  placeholder="As it appears on your bank account"
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Amount (Rs.) — leave blank for full balance</label>
+                <input
+                  value={payoutForm.amount}
+                  onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })}
+                  placeholder={`Max: ${totalNet.toLocaleString()}`}
+                  type="number"
+                  min="500"
+                  max={totalNet}
+                  className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-2.5 text-xs text-blue-800">
+                <i className="fas fa-clock text-blue-500 mt-0.5" />
+                Payouts are processed within <strong>1–2 business days</strong>. A 10% platform fee is already deducted from your displayed balance.
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowPayoutModal(false)}
+                  className="flex-1 py-3.5 border border-slate-200 rounded-2xl font-bold text-sm text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitPayout}
+                  disabled={requestingPayout}
+                  className="flex-1 bg-gradient-brand text-primary-foreground py-3.5 rounded-2xl font-bold text-sm shadow-glow hover:scale-[1.02] transition disabled:opacity-70 flex items-center justify-center gap-2"
+                >
+                  {requestingPayout
+                    ? <><i className="fas fa-spinner fa-spin" /> Processing...</>
+                    : <><i className="fas fa-bolt" /> Request Payout</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

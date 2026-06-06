@@ -10,6 +10,9 @@ import { addNotification } from "@/components/NotificationsDropdown";
 import { toast } from "sonner";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { getSaved, toggleSaved } from "@/lib/saved";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { addFirestoreBooking } from "@/lib/firestore/bookings";
+import { getUser } from "@/lib/auth";
 
 const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
@@ -117,41 +120,58 @@ export default function ServiceDetail() {
     setShowConfirm(true);
   };
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     setShowConfirm(false);
     setSubmitting(true);
-    setTimeout(() => {
-      const bookingId = generateId("BK");
-      addBooking({
-        id: bookingId,
-        serviceId: service.id,
-        serviceTitle: service.title,
-        category: service.category,
-        categoryIcon: service.categoryIcon,
-        vendorName: service.seller,
-        vendorPhone: service.sellerPhone ?? "+94771234567",
-        vendorInitial: service.sellerInitial,
-        vendorVerified: service.sellerVerified ?? false,
-        customerName: name,
-        customerPhone: phone,
-        date,
-        time,
-        notes,
-        extraData: extras,
-        price: service.price,
-        district: service.district,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-      });
+    const bookingId = generateId("BK");
+    const currentUser = getUser();
+    const bookingData = {
+      id: bookingId,
+      serviceId: service.id,
+      serviceTitle: service.title,
+      category: service.category,
+      categoryIcon: service.categoryIcon,
+      vendorName: service.seller,
+      vendorPhone: service.sellerPhone ?? "+94771234567",
+      vendorInitial: service.sellerInitial,
+      vendorVerified: service.sellerVerified ?? false,
+      customerName: name,
+      customerPhone: phone,
+      date,
+      time,
+      notes,
+      extraData: extras,
+      price: service.price,
+      district: service.district,
+      status: "pending" as const,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      // Always write to localStorage
+      addBooking(bookingData);
+      // Dual-write to Firestore if configured
+      if (isFirebaseConfigured && currentUser && !currentUser.id.startsWith("UDEMO")) {
+        await addFirestoreBooking({
+          ...bookingData,
+          buyerId: currentUser.id,
+          sellerId: service.sellerId ?? service.id,
+          updatedAt: new Date().toISOString(),
+        });
+      }
       addNotification({
         type: "booking_new",
         title: "Booking Request Sent",
         body: `Your request for "${service.title}" has been sent to ${service.seller}.`,
         link: `/booking/confirm/${bookingId}`,
       });
-      setSubmitting(false);
       navigate(`/booking/confirm/${bookingId}`);
-    }, 1500);
+    } catch (err) {
+      console.error("Booking error:", err);
+      // Still navigate — localStorage write succeeded
+      navigate(`/booking/confirm/${bookingId}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

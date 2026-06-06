@@ -4,6 +4,9 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
 import { MOCK_CATEGORIES, SL_DISTRICTS } from "@/data/mock";
 import { addService, generateId } from "@/lib/store";
 import { toast } from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { addFirestoreService } from "@/lib/firestore/services";
+import { getUser } from "@/lib/auth";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -62,34 +65,57 @@ export default function NewService() {
     true,
   ][step];
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!category || !title || !description || !price) {
       toast.error("Please complete all required fields.");
       return;
     }
     setSaving(true);
-    setTimeout(() => {
-      addService({
-        id: generateId("SVC"),
-        title: title.trim(),
-        category,
-        categoryIcon: `fas ${CATEGORY_ICONS[category] ?? "fa-star"}`,
-        description: description.trim(),
-        price: Number(price),
-        priceUnit,
-        type,
-        tags,
-        district,
-        status: publishAs,
-        views: 0,
-        orders: 0,
-        rating: 0,
-        createdAt: new Date().toISOString(),
-      });
-      setSaving(false);
+    const user = getUser();
+    const serviceId = generateId("SVC");
+    const serviceData = {
+      id: serviceId,
+      title: title.trim(),
+      category,
+      categoryIcon: `fas ${CATEGORY_ICONS[category] ?? "fa-star"}`,
+      description: description.trim(),
+      price: Number(price),
+      priceUnit,
+      type,
+      tags,
+      district,
+      status: publishAs,
+      views: 0,
+      orders: 0,
+      rating: 0,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      // Always write to localStorage
+      addService(serviceData);
+      // Dual-write to Firestore if Firebase is configured
+      if (isFirebaseConfigured && user) {
+        await addFirestoreService({
+          ...serviceData,
+          sellerId: user.id,
+          sellerName: user.name,
+          sellerPhone: user.phone ?? "",
+          sellerVerified: user.verified ?? false,
+          badge: user.verified ? "verified" : undefined,
+          imageUrl: "",
+          reviewCount: 0,
+          sellerDistrict: user.district ?? district,
+        });
+      }
       toast.success(publishAs === "active" ? "Service published! Customers can now find you." : "Service saved as draft.");
       navigate("/dashboard/seller/services");
-    }, 1200);
+    } catch (err) {
+      console.error("Failed to save service:", err);
+      toast.success(publishAs === "active" ? "Service published locally." : "Service saved as draft.");
+      navigate("/dashboard/seller/services");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

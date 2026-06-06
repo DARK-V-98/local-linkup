@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { getUser, setUser } from "@/lib/auth";
 import { SL_DISTRICTS } from "@/data/mock";
 import { toast } from "sonner";
+import { isFirebaseConfigured, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { updateUserProfile } from "@/lib/firestore/users";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -15,13 +18,16 @@ export default function BuyerSettings() {
   const user = getUser();
   const [tab, setTab] = useState<"profile" | "notifications" | "security">("profile");
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState({
     name: user?.name ?? "",
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     district: user?.district ?? "Colombo",
-    bio: "",
+    bio: user?.bio ?? "",
   });
 
   const [notifs, setNotifs] = useState({
@@ -33,15 +39,56 @@ export default function BuyerSettings() {
     email: true,
   });
 
-  const saveProfile = () => {
-    setSaving(true);
-    setTimeout(() => {
-      if (user) {
-        setUser({ ...user, name: profile.name, email: profile.email, phone: profile.phone, district: profile.district });
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error("Image must be under 2MB."); return; }
+    setUploading(true);
+    try {
+      if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+        const storageRef = ref(storage, `avatars/${user.id}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        setAvatarUrl(url);
+        setUser({ ...user, avatarUrl: url });
+        await updateUserProfile(user.id, { avatarUrl: url });
+        toast.success("Photo updated!");
+      } else {
+        // Local preview only for demo accounts
+        const url = URL.createObjectURL(file);
+        setAvatarUrl(url);
+        toast.success("Photo updated (local preview).");
       }
-      setSaving(false);
+    } catch {
+      toast.error("Failed to upload photo. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      if (user) {
+        const updates = {
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          district: profile.district,
+          bio: profile.bio,
+        };
+        setUser({ ...user, ...updates });
+        if (isFirebaseConfigured && !user.id.startsWith("UDEMO")) {
+          await updateUserProfile(user.id, updates);
+        }
+        window.dispatchEvent(new Event("needly-auth-change"));
+      }
       toast.success("Profile updated.");
-    }, 800);
+    } catch {
+      toast.error("Failed to save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -70,12 +117,21 @@ export default function BuyerSettings() {
             <div className="bg-white rounded-3xl border border-slate-200 p-6">
               <h3 className="font-black text-slate-900 mb-5">Profile Photo</h3>
               <div className="flex items-center gap-5">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-brand grid place-items-center text-primary-foreground text-3xl font-black shadow-soft">
-                  {profile.name.charAt(0).toUpperCase() || "B"}
-                </div>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-2xl object-cover shadow-soft border border-slate-200" />
+                ) : (
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-brand grid place-items-center text-primary-foreground text-3xl font-black shadow-soft">
+                    {profile.name.charAt(0).toUpperCase() || "B"}
+                  </div>
+                )}
                 <div>
-                  <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition">
-                    <i className="fas fa-upload mr-2" /> Upload Photo
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handlePhotoChange} />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {uploading ? <><i className="fas fa-spinner fa-spin" /> Uploading...</> : <><i className="fas fa-upload" /> Upload Photo</>}
                   </button>
                   <p className="text-xs text-slate-400 mt-2">JPG or PNG · Max 2MB</p>
                 </div>

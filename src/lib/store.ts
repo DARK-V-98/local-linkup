@@ -19,6 +19,12 @@ export interface StoredBooking {
   status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   createdAt: string;
   isEmergency?: boolean;
+  statusHistory?: StatusEvent[];
+}
+
+export interface StatusEvent {
+  status: StoredBooking['status'];
+  at: string;
 }
 
 export interface StoredService {
@@ -52,8 +58,13 @@ export function getBookings(): StoredBooking[] {
 
 export function addBooking(b: StoredBooking): void {
   const existing = getBookings();
-  existing.unshift(b);
+  const withHistory: StoredBooking = {
+    ...b,
+    statusHistory: b.statusHistory ?? [{ status: b.status, at: b.createdAt }],
+  };
+  existing.unshift(withHistory);
   localStorage.setItem(BOOKINGS_KEY, JSON.stringify(existing));
+  notifyBookingsChange();
 }
 
 export function updateBookingStatus(id: string, status: StoredBooking['status']): void {
@@ -61,8 +72,23 @@ export function updateBookingStatus(id: string, status: StoredBooking['status'])
   const idx = bookings.findIndex((b) => b.id === id);
   if (idx !== -1) {
     bookings[idx].status = status;
+    const history = bookings[idx].statusHistory ?? [];
+    history.push({ status, at: new Date().toISOString() });
+    bookings[idx].statusHistory = history;
     localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
+    notifyBookingsChange();
   }
+}
+
+// Cross-tab + same-tab real-time booking sync
+export function notifyBookingsChange(): void {
+  window.dispatchEvent(new Event('needly-bookings-change'));
+  try {
+    // BroadcastChannel reaches other tabs instantly
+    const bc = new BroadcastChannel('needly-sync');
+    bc.postMessage({ type: 'bookings-change', at: Date.now() });
+    bc.close();
+  } catch { /* BroadcastChannel unsupported */ }
 }
 
 export function getBookingById(id: string): StoredBooking | null {

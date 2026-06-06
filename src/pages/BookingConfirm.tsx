@@ -7,6 +7,14 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { getBookingById } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { toast } from "sonner";
+import { openPayHereCheckout } from "@/lib/payhere";
+import { getWalletBalance, payFromWallet, addTransaction } from "@/lib/wallet";
+import { getUser } from "@/lib/auth";
+import OrderTimeline from "@/components/OrderTimeline";
+
+type PayStatus = "unpaid" | "paying" | "paid";
+const PAYMENT_KEY = "needly_paid_bookings";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending Confirmation", color: "text-amber-600 bg-amber-50 border-amber-200", icon: "fa-clock" },
@@ -16,16 +24,99 @@ const STATUS_CONFIG = {
   cancelled: { label: "Cancelled", color: "text-red-600 bg-red-50 border-red-200", icon: "fa-xmark" },
 };
 
+function getPaidBookings(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(PAYMENT_KEY) ?? "[]")); } catch { return new Set(); }
+}
+function markPaid(bookingId: string) {
+  const paid = [...getPaidBookings(), bookingId];
+  localStorage.setItem(PAYMENT_KEY, JSON.stringify(paid));
+}
+
 export default function BookingConfirm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [booking, setBooking] = useState(id ? getBookingById(id) : null);
   const [showFull, setShowFull] = useState(false);
+  const [payStatus, setPayStatus] = useState<PayStatus>(() => id && getPaidBookings().has(id) ? "paid" : "unpaid");
+  const [payMethod, setPayMethod] = useState<"payhere" | "wallet" | "cash">("payhere");
+  const [walletBalance, setWalletBalance] = useState(getWalletBalance());
   usePageTitle(booking ? `Booking #${booking.id}` : "Booking Confirmed");
 
   useEffect(() => {
     if (id) setBooking(getBookingById(id));
+    setWalletBalance(getWalletBalance());
+    // Live status updates (cross-tab + same-tab) for real-time timeline
+    const onChange = () => { if (id) setBooking(getBookingById(id)); };
+    window.addEventListener("needly-bookings-change", onChange);
+    window.addEventListener("storage", onChange);
+    let bc: BroadcastChannel | undefined;
+    try {
+      bc = new BroadcastChannel("needly-sync");
+      bc.onmessage = (e) => { if (e.data?.type === "bookings-change") onChange(); };
+    } catch { /* unsupported */ }
+    return () => {
+      window.removeEventListener("needly-bookings-change", onChange);
+      window.removeEventListener("storage", onChange);
+      bc?.close();
+    };
   }, [id]);
+
+  const handlePay = async () => {
+    if (!booking) return;
+    const user = getUser();
+    setPayStatus("paying");
+
+    if (payMethod === "wallet") {
+      const ok = payFromWallet(booking.price, `Payment for ${booking.serviceTitle}`, booking.id);
+      if (ok) {
+        markPaid(booking.id);
+        setPayStatus("paid");
+        setWalletBalance(getWalletBalance());
+        toast.success("Payment successful from your Needly Wallet!");
+      } else {
+        setPayStatus("unpaid");
+        toast.error("Insufficient wallet balance. Please top up or use PayHere.");
+      }
+      return;
+    }
+
+    if (payMethod === "cash") {
+      markPaid(booking.id);
+      setPayStatus("paid");
+      toast.success("Cash payment noted. Pay your service provider directly.");
+      return;
+    }
+
+    // PayHere
+    try {
+      await openPayHereCheckout({
+        orderId: booking.id,
+        amount: booking.price * 100, // in cents
+        description: booking.serviceTitle,
+        customerName: booking.customerName,
+        customerEmail: user?.email ?? "customer@needlyy.lk",
+        customerPhone: booking.customerPhone,
+        district: booking.district,
+        onSuccess: (orderId) => {
+          markPaid(orderId);
+          addTransaction({ type: "payment", desc: `Payment for ${booking.serviceTitle}`, amount: -booking.price, status: "completed", bookingId: orderId });
+          setPayStatus("paid");
+          toast.success("Payment successful via PayHere! 🎉");
+        },
+        onDismissed: () => {
+          setPayStatus("unpaid");
+          toast.info("Payment was cancelled.");
+        },
+        onError: (err) => {
+          setPayStatus("unpaid");
+          toast.error(`Payment failed: ${err}`);
+        },
+      });
+    } catch {
+      setPayStatus("unpaid");
+      toast.error("Could not open PayHere. Please try again.");
+    }
+  };
 
   if (!booking) {
     return (
@@ -175,6 +266,113 @@ export default function BookingConfirm() {
                 <i className="fab fa-whatsapp text-lg" /> Chat
               </a>
             </div>
+          </div>
+
+          {/* Payment Section */}
+          <div className="bg-card border border-border rounded-3xl overflow-hidden mb-6">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <h3 className="font-black text-base">Payment</h3>
+              {payStatus === "paid" && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-black">
+                  <i className="fas fa-circle-check" /> Paid
+                </span>
+              )}
+            </div>
+
+            {payStatus === "paid" ? (
+              <div className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 grid place-items-center">
+                  <i className="fas fa-receipt text-emerald-600 text-lg" />
+                </div>
+                <div>
+                  <div className="font-black text-slate-900">Payment Confirmed</div>
+                  <div className="text-sm text-slate-500 mt-0.5">
+                    {formatPrice(booking.price)} paid · Ref: {booking.id}
+                  </div>
+                </div>
+                <div className="ml-auto font-black text-emerald-600 text-lg">{formatPrice(booking.price)}</div>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                {/* Method selector */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { key: "payhere" as const, label: "PayHere", icon: "fa-mobile-screen", desc: "Card / Bank" },
+                    { key: "wallet" as const, label: "Wallet", icon: "fa-wallet", desc: `Rs. ${walletBalance.toLocaleString()}` },
+                    { key: "cash" as const, label: "Cash", icon: "fa-money-bills", desc: "Pay on site" },
+                  ].map((m) => (
+                    <button
+                      key={m.key}
+                      onClick={() => setPayMethod(m.key)}
+                      className={`p-4 rounded-2xl border-2 text-center transition ${payMethod === m.key ? "border-primary bg-primary/5" : "border-slate-200 hover:border-slate-300"}`}
+                    >
+                      <i className={`fas ${m.icon} text-xl block mb-1.5 ${payMethod === m.key ? "text-primary" : "text-slate-400"}`} />
+                      <div className={`text-xs font-black ${payMethod === m.key ? "text-primary" : "text-slate-900"}`}>{m.label}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* PayHere info */}
+                {payMethod === "payhere" && (
+                  <div className="bg-violet-50 border border-violet-100 rounded-2xl p-4 flex items-start gap-3">
+                    <i className="fas fa-shield-halved text-violet-600 text-lg mt-0.5" />
+                    <div className="text-xs text-violet-800">
+                      <strong>Secure payment via PayHere.</strong> Supports Visa, Mastercard, Sampath iPay, HNB SOLO, and all major Sri Lankan bank portals. You'll be redirected to PayHere's secure checkout.
+                    </div>
+                  </div>
+                )}
+
+                {/* Wallet info */}
+                {payMethod === "wallet" && (
+                  <div className={`rounded-2xl p-4 flex items-start gap-3 border ${walletBalance >= booking.price ? "bg-emerald-50 border-emerald-100" : "bg-rose-50 border-rose-100"}`}>
+                    <i className={`fas ${walletBalance >= booking.price ? "fa-circle-check text-emerald-600" : "fa-triangle-exclamation text-rose-500"} text-lg mt-0.5`} />
+                    <div className={`text-xs ${walletBalance >= booking.price ? "text-emerald-800" : "text-rose-700"}`}>
+                      {walletBalance >= booking.price
+                        ? <><strong>Sufficient balance.</strong> Rs. {walletBalance.toLocaleString()} available. Rs. {booking.price.toLocaleString()} will be deducted.</>
+                        : <><strong>Insufficient balance.</strong> You need Rs. {(booking.price - walletBalance).toLocaleString()} more. <Link to="/dashboard/buyer/payments" className="underline font-bold">Top up your wallet →</Link></>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cash info */}
+                {payMethod === "cash" && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-3">
+                    <i className="fas fa-info-circle text-amber-600 text-lg mt-0.5" />
+                    <div className="text-xs text-amber-800">
+                      <strong>Pay directly to your service provider.</strong> Bring cash on the day of service. Confirm with them over WhatsApp beforehand.
+                    </div>
+                  </div>
+                )}
+
+                {/* Total row */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <div className="text-sm font-semibold text-slate-500">Total to pay</div>
+                  <div className="text-xl font-black text-slate-900">{formatPrice(booking.price)}</div>
+                </div>
+
+                <button
+                  onClick={handlePay}
+                  disabled={payStatus === "paying"}
+                  className="w-full bg-gradient-brand text-primary-foreground py-4 rounded-2xl font-bold text-sm shadow-glow hover:scale-[1.02] transition disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
+                >
+                  {payStatus === "paying" ? (
+                    <><i className="fas fa-spinner fa-spin" /> Processing Payment...</>
+                  ) : payMethod === "payhere" ? (
+                    <><i className="fas fa-mobile-screen" /> Pay Rs. {booking.price.toLocaleString()} via PayHere</>
+                  ) : payMethod === "wallet" ? (
+                    <><i className="fas fa-wallet" /> Pay from Wallet</>
+                  ) : (
+                    <><i className="fas fa-check" /> Confirm Cash Payment</>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Live Order Timeline */}
+          <div className="mb-6">
+            <OrderTimeline booking={booking} />
           </div>
 
           {/* What happens next */}

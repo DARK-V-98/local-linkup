@@ -81,7 +81,7 @@ export default function Footer() {
             <img
               src="/logo.png"
               alt="Needlyy"
-              className="h-12 md:h-14 w-auto object-contain brightness-0 invert"
+              className="h-12 md:h-14 w-auto object-contain drop-shadow-sm"
             />
           </div>
           <p className="text-sm text-slate-400 max-w-sm leading-relaxed">

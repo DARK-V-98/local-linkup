@@ -6,6 +6,9 @@ import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
 import ReviewModal from "@/components/ReviewModal";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToBookingsByBuyer } from "@/lib/firestore/bookings";
+import { getUser } from "@/lib/auth";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -33,8 +36,34 @@ export default function BuyerOrders() {
   const [cancelingId, setCancelingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = getBookings();
-    setBookings(stored);
+    const user = getUser();
+    // Use real-time Firestore listener when Firebase is configured and user is not a demo account
+    if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+      const unsub = subscribeToBookingsByBuyer(user.id, (firestoreBookings) => {
+        // Merge Firestore bookings with localStorage (Firestore takes precedence)
+        const local = getBookings();
+        const fsIds = new Set(firestoreBookings.map((b) => b.id));
+        const merged = [...firestoreBookings, ...local.filter((b) => !fsIds.has(b.id))];
+        setBookings(merged);
+      });
+      return unsub;
+    } else {
+      setBookings(getBookings());
+      // Live cross-tab + same-tab sync for localStorage/demo mode
+      const onChange = () => setBookings(getBookings());
+      window.addEventListener("needly-bookings-change", onChange);
+      let bc: BroadcastChannel | undefined;
+      try {
+        bc = new BroadcastChannel("needly-sync");
+        bc.onmessage = (e) => { if (e.data?.type === "bookings-change") onChange(); };
+      } catch { /* BroadcastChannel unsupported */ }
+      window.addEventListener("storage", onChange);
+      return () => {
+        window.removeEventListener("needly-bookings-change", onChange);
+        window.removeEventListener("storage", onChange);
+        bc?.close();
+      };
+    }
   }, []);
 
   const confirmCancel = (id: string) => {

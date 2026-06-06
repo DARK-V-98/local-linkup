@@ -3,6 +3,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect } from "react";
+import { auth, isFirebaseConfigured } from "@/lib/firebase";
+import { getUser, setUser, clearUser } from "@/lib/auth";
+import { getUserProfile } from "@/lib/firestore/users";
 import Index from "./pages/Index.tsx";
 import RoleSelection from "./pages/RoleSelection.tsx";
 import RegisterBuyer from "./pages/RegisterBuyer.tsx";
@@ -43,17 +47,50 @@ import BuyerPayments from "./pages/dashboard/buyer/BuyerPayments.tsx";
 import SavedSellers from "./pages/dashboard/buyer/SavedSellers.tsx";
 import SellerInbox from "./pages/dashboard/seller/SellerInbox.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import ForgotPassword from "./pages/ForgotPassword.tsx";
 
 import { seedLocalStorage } from "./lib/seed";
 seedLocalStorage();
 
 const queryClient = new QueryClient();
 
+function AuthStateWatcher() {
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    let unsubscribe: (() => void) | undefined;
+    import("firebase/auth").then(({ onAuthStateChanged }) => {
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          const current = getUser();
+          // Only sync if not already a demo account
+          if (!current || (!current.id.startsWith("UDEMO") && current.id !== firebaseUser.uid)) {
+            const profile = await getUserProfile(firebaseUser.uid);
+            if (profile) {
+              setUser(profile);
+              window.dispatchEvent(new Event("needly-auth-change"));
+            }
+          }
+        } else {
+          const current = getUser();
+          // Only clear if it was a real Firebase user (not demo)
+          if (current && !current.id.startsWith("UDEMO")) {
+            clearUser();
+            window.dispatchEvent(new Event("needly-auth-change"));
+          }
+        }
+      });
+    });
+    return () => unsubscribe?.();
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AuthStateWatcher />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -95,6 +132,7 @@ const App = () => (
           <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/register/buyer" element={<RegisterBuyer />} />
           <Route path="/register/seller" element={<RegisterSeller />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

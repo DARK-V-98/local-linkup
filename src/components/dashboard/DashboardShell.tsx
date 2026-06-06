@@ -100,7 +100,7 @@ export default function DashboardShell({
       >
         <div className="h-full flex flex-col p-6">
           <Link to="/" className="flex items-center gap-2 mb-10">
-            <img src="/logo.png" alt="Needlyy" className="h-10 w-auto brightness-0 invert" />
+            <img src="/logo.png" alt="Needlyy" className="h-10 w-auto drop-shadow-sm" />
           </Link>
 
           <nav className="flex-1 space-y-1 overflow-y-auto">
@@ -135,6 +135,13 @@ export default function DashboardShell({
                 <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 truncate">{role}</div>
               </div>
             </div>
+            <Link
+              to="/"
+              className="flex items-center gap-3 px-4 py-3 w-full rounded-xl font-bold hover:bg-white/10 hover:text-white transition text-slate-400 mb-1"
+            >
+              <i className="fas fa-house w-5 text-center" />
+              Back to Home
+            </Link>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-3 px-4 py-3 w-full rounded-xl font-bold hover:bg-red-500/10 hover:text-red-400 transition text-slate-400"
