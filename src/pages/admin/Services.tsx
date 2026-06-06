@@ -1,13 +1,17 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
+  { label: "Orders", to: "/admin/orders", icon: "fa-cart-flatbed" },
+  { label: "Payments", to: "/admin/payments", icon: "fa-money-bill-wave" },
   { label: "Verifications", to: "/admin/verifications", icon: "fa-user-check" },
   { label: "User Management", to: "/admin/users", icon: "fa-users" },
+  { label: "Sellers", to: "/admin/sellers", icon: "fa-store" },
   { label: "Service Catalog", to: "/admin/services", icon: "fa-layer-group" },
+  { label: "Categories", to: "/admin/categories", icon: "fa-tags" },
   { label: "Disputes", to: "/admin/disputes", icon: "fa-circle-exclamation" },
   { label: "System Settings", to: "/admin/settings", icon: "fa-gears" },
 ];

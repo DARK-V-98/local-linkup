@@ -15,22 +15,6 @@ const buyerSidebarItems = [
   { label: "Settings", to: "/dashboard/buyer/settings", icon: "fa-user-gear" },
 ];
 
-const DEMO_PAST: StoredBooking[] = [
-  {
-    id: "PAST001", serviceId: "t2", serviceTitle: "Luxury Home Deep Cleaning", category: "Home Services", categoryIcon: "fas fa-gem",
-    vendorName: "Nirmala S.", vendorPhone: "+94779876543", vendorInitial: "N", vendorVerified: true,
-    customerName: "You", customerPhone: "+94771234567", date: "2026-04-15", time: "09:00",
-    notes: "Please bring your own equipment", extraData: {}, price: 8500, district: "Kandy",
-    status: "completed", createdAt: new Date(Date.now() - 40 * 86400000).toISOString(),
-  },
-  {
-    id: "PAST002", serviceId: "t3", serviceTitle: "A/L Combined Maths Mastery", category: "Tuition", categoryIcon: "fas fa-fire",
-    vendorName: "Kasun J.", vendorPhone: "+94766543210", vendorInitial: "K", vendorVerified: true,
-    customerName: "You", customerPhone: "+94771234567", date: "2026-03-10", time: "17:00",
-    notes: "", extraData: { "Student Level / Grade": "A/L", "Subjects Needed": "Combined Maths" }, price: 4500, district: "Galle",
-    status: "completed", createdAt: new Date(Date.now() - 76 * 86400000).toISOString(),
-  },
-];
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", pill: "bg-amber-100 text-amber-700", icon: "fa-clock" },
@@ -61,7 +45,7 @@ export default function BuyerOrders() {
   };
 
   const active = bookings.filter((b) => ["pending", "confirmed", "in_progress"].includes(b.status));
-  const history = [...bookings.filter((b) => ["completed", "cancelled"].includes(b.status)), ...DEMO_PAST];
+  const history = bookings.filter((b) => ["completed", "cancelled"].includes(b.status));
   const displayed = tab === "active" ? active : history;
 
   return (

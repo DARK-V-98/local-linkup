@@ -30,7 +30,7 @@ const trustItems = [
 const badges = [
   { icon: "fa-star", label: "4.9 Avg Rating" },
   { icon: "fa-circle-check", label: "Verified Sellers" },
-  { icon: "fa-users", label: "2,500+ Pros" },
+  { icon: "fa-users", label: "18,000+ Users" },
   { icon: "fa-shield-halved", label: "Secure Platform" },
 ];
 

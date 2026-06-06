@@ -11,6 +11,7 @@ import { getSaved, toggleSaved } from "@/lib/saved";
 
 const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
+const ITEMS_PER_PAGE = 9;
 const SERVICE_TYPES = ["All Types", "Fixed Price", "Hourly Service", "Booking Service", "Local Service", "Online Service"];
 const SORT_OPTIONS = [
   { value: "relevant", label: "Most Relevant" },
@@ -21,7 +22,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function Browse() {
-  usePageTitle("Browse Services");
+  usePageTitle("Browse Services", "Search and filter verified local professionals across Sri Lanka. Find the right service for you.");
   const [searchParams] = useSearchParams();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [activeCategory, setActiveCategory] = useState(searchParams.get("category") ?? "all");
@@ -31,6 +32,7 @@ export default function Browse() {
   const [maxPrice, setMaxPrice] = useState(200000);
   const [sortBy, setSortBy] = useState("relevant");
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
   const [savedSet, setSavedSet] = useState<Set<string>>(() => new Set(getSaved()));
 
   const handleSave = (serviceId: string, e: React.MouseEvent) => {
@@ -47,7 +49,11 @@ export default function Browse() {
     if (q) setSearch(q);
     if (cat) setActiveCategory(cat);
     if (dist) setDistrict(dist);
+    setPage(1);
   }, [searchParams]);
+
+  // Reset to page 1 whenever any filter changes
+  useEffect(() => { setPage(1); }, [search, activeCategory, district, serviceType, minRating, maxPrice, sortBy]);
 
   const filtered = allServices
     .filter((s) => {
@@ -67,6 +73,9 @@ export default function Browse() {
       if (sortBy === "rating") return b.rating - a.rating;
       return b.reviews - a.reviews;
     });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const activeFilterCount = [
     district !== "All Districts",
@@ -269,7 +278,7 @@ export default function Browse() {
             </div>
 
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filtered.map((s) => (
+              {paginated.map((s) => (
                 <Link
                   key={s.id}
                   to={`/service/${s.id}`}
@@ -317,6 +326,35 @@ export default function Browse() {
                 </Link>
               ))}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-10">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-sm font-bold disabled:opacity-40 hover:bg-foreground/5 transition"
+                >
+                  <i className="fas fa-chevron-left text-xs" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-9 h-9 rounded-xl text-sm font-bold transition ${p === page ? "bg-primary text-primary-foreground shadow-glow" : "border border-border hover:bg-foreground/5"}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="w-9 h-9 rounded-xl border border-border flex items-center justify-center text-sm font-bold disabled:opacity-40 hover:bg-foreground/5 transition"
+                >
+                  <i className="fas fa-chevron-right text-xs" />
+                </button>
+              </div>
+            )}
 
             {filtered.length === 0 && (
               <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-border">

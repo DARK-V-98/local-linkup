@@ -6,6 +6,7 @@ import MobileNav from "@/components/layout/MobileNav";
 import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { addBooking, generateId } from "@/lib/store";
+import { addNotification } from "@/components/NotificationsDropdown";
 import { toast } from "sonner";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { getSaved, toggleSaved } from "@/lib/saved";
@@ -64,7 +65,10 @@ export default function ServiceDetail() {
   const navigate = useNavigate();
   const service = allServices.find((s) => s.id === id);
 
-  usePageTitle(service ? `${service.title} by ${service.seller}` : "Service Detail");
+  usePageTitle(
+    service ? `${service.title} by ${service.seller}` : "Service Detail",
+    service ? `Book ${service.title} by ${service.seller} on Needlyy. Starting from ${service.price > 0 ? `Rs. ${service.price.toLocaleString()}` : "negotiable"}. Verified seller in ${service.location}.` : undefined
+  );
 
   const [saved, setSaved] = useState(() => service ? getSaved().includes(service.id) : false);
 
@@ -81,7 +85,9 @@ export default function ServiceDetail() {
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
   const [extras, setExtras] = useState<Record<string, string>>({});
+  const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   if (!service) {
     return (
@@ -97,12 +103,22 @@ export default function ServiceDetail() {
   const extraFields = BOOKING_EXTRA_FIELDS[service.category] ?? [];
   const related = allServices.filter((s) => s.category === service.category && s.id !== service.id).slice(0, 3);
 
-  const handleBooking = (e: React.FormEvent) => {
+  const SL_PHONE_RE = /^(\+94|094|0)[0-9]{9}$/;
+
+  const validateAndConfirm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !date) {
-      toast.error("Please fill in your name, phone, and preferred date.");
+    if (!name.trim()) { toast.error("Please enter your name."); return; }
+    if (!phone.trim() || !SL_PHONE_RE.test(phone.replace(/\s/g, ""))) {
+      toast.error("Enter a valid Sri Lankan number, e.g. +94 77 123 4567");
       return;
     }
+    if (!date) { toast.error("Please choose a preferred date."); return; }
+    if (!agreed) { toast.error("Please agree to the booking terms."); return; }
+    setShowConfirm(true);
+  };
+
+  const handleBooking = () => {
+    setShowConfirm(false);
     setSubmitting(true);
     setTimeout(() => {
       const bookingId = generateId("BK");
@@ -126,6 +142,12 @@ export default function ServiceDetail() {
         district: service.district,
         status: "pending",
         createdAt: new Date().toISOString(),
+      });
+      addNotification({
+        type: "booking_new",
+        title: "Booking Request Sent",
+        body: `Your request for "${service.title}" has been sent to ${service.seller}.`,
+        link: `/booking/confirm/${bookingId}`,
       });
       setSubmitting(false);
       navigate(`/booking/confirm/${bookingId}`);
@@ -352,8 +374,35 @@ export default function ServiceDetail() {
 
                 <hr className="my-5 border-border" />
 
-                {/* Booking form */}
-                <form onSubmit={handleBooking} className="space-y-3">
+                {/* Confirmation modal */}
+                {showConfirm && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                    <div className="bg-background border border-border rounded-3xl p-6 max-w-sm w-full shadow-glass">
+                      <h3 className="font-black text-lg mb-2">Confirm Booking Request</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        You're requesting <strong>{service.title}</strong> from <strong>{service.seller}</strong> on <strong>{date}</strong>{time ? ` at ${time}` : ""}.
+                      </p>
+                      <div className="text-sm font-black text-foreground mb-5">{formatPrice(service.price)}</div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setShowConfirm(false)}
+                          className="flex-1 py-3 rounded-2xl border border-border font-bold text-sm hover:bg-foreground/5 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleBooking}
+                          className="flex-1 py-3 rounded-2xl bg-gradient-brand text-primary-foreground font-bold text-sm shadow-glow hover:scale-[1.02] transition"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              {/* Booking form */}
+                <form onSubmit={validateAndConfirm} className="space-y-3">
                   <h3 className="font-black text-base">Request a Booking</h3>
 
                   <div>
@@ -416,6 +465,20 @@ export default function ServiceDetail() {
                       className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                     />
                   </div>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="mt-0.5 accent-primary w-4 h-4 shrink-0"
+                    />
+                    <span className="text-xs text-muted-foreground leading-relaxed">
+                      I agree to the{" "}
+                      <Link to="/terms" className="text-primary font-semibold hover:underline" target="_blank">booking terms</Link>
+                      {" "}and understand the cancellation policy.
+                    </span>
+                  </label>
 
                   <button
                     type="submit"

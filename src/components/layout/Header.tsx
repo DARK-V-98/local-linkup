@@ -2,6 +2,8 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { getUser, clearUser, AuthUser } from "@/lib/auth";
 import { getLang, setLang, LANG_LABELS, Lang } from "@/lib/lang";
+import { getBookings } from "@/lib/store";
+import NotificationsDropdown from "@/components/NotificationsDropdown";
 import { toast } from "sonner";
 
 const navItems = [
@@ -42,6 +44,9 @@ export default function Header() {
   const [lang, setLangState] = useState<Lang>(getLang());
   const [showLang, setShowLang] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [mobileQ, setMobileQ] = useState("");
+  const [pendingCount, setPendingCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +64,16 @@ export default function Header() {
       window.removeEventListener("storage", onAuthChange);
       window.removeEventListener("needly-auth-change", onAuthChange);
     };
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      const bookings = getBookings();
+      setPendingCount(bookings.filter((b) => b.status === "pending").length);
+    };
+    refresh();
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
   }, []);
 
   // Close user menu on outside click
@@ -152,14 +167,21 @@ export default function Header() {
           </Link>
 
           {user ? (
+            <>
+            <NotificationsDropdown />
             <div className="relative" ref={userMenuRef}>
               {/* Trigger pill */}
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2.5 bg-foreground/5 hover:bg-foreground/10 px-3 py-2 rounded-full transition"
               >
-                <span className="grid place-items-center w-7 h-7 rounded-full bg-gradient-brand text-primary-foreground text-xs font-black">
+                <span className="relative grid place-items-center w-7 h-7 rounded-full bg-gradient-brand text-primary-foreground text-xs font-black">
                   {user.name.charAt(0).toUpperCase()}
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black grid place-items-center border-2 border-background">
+                      {pendingCount > 9 ? "9+" : pendingCount}
+                    </span>
+                  )}
                 </span>
                 <span className="text-sm font-semibold max-w-[100px] truncate">{user.name.split(" ")[0]}</span>
                 <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${user.role === "admin" ? "bg-red-100 text-red-600" : user.role === "seller" ? "bg-violet-100 text-violet-600" : "bg-emerald-100 text-emerald-600"}`}>
@@ -233,7 +255,7 @@ export default function Header() {
                 </div>
               )}
             </div>
-          ) : (
+            </>) : (
             <>
               <Link to="/login" className="text-sm font-semibold text-foreground hover:text-primary transition">
                 Sign in
@@ -248,14 +270,58 @@ export default function Header() {
           )}
         </div>
 
-        <button
-          onClick={() => setOpen(!open)}
-          className="md:hidden grid place-items-center w-10 h-10 rounded-xl bg-foreground/5"
-          aria-label="Toggle menu"
-        >
-          <i className={`fas ${open ? "fa-xmark" : "fa-bars"}`} />
-        </button>
+        <div className="md:hidden flex items-center gap-2">
+          <button
+            onClick={() => setShowMobileSearch(!showMobileSearch)}
+            className="grid place-items-center w-10 h-10 rounded-xl bg-foreground/5"
+            aria-label="Search"
+          >
+            <i className="fas fa-magnifying-glass text-sm" />
+          </button>
+          <button
+            onClick={() => setOpen(!open)}
+            className="relative grid place-items-center w-10 h-10 rounded-xl bg-foreground/5"
+            aria-label="Toggle menu"
+          >
+            <i className={`fas ${open ? "fa-xmark" : "fa-bars"}`} />
+            {pendingCount > 0 && !open && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black grid place-items-center border-2 border-background">
+                {pendingCount > 9 ? "9+" : pendingCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {showMobileSearch && (
+        <div className="md:hidden bg-background/95 backdrop-blur-xl border-t border-border px-4 py-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (mobileQ.trim()) {
+                setShowMobileSearch(false);
+                navigate(`/browse?q=${encodeURIComponent(mobileQ.trim())}`);
+                setMobileQ("");
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <div className="flex-1 flex items-center gap-2 bg-foreground/5 rounded-xl px-4 py-2.5">
+              <i className="fas fa-magnifying-glass text-muted-foreground text-sm" />
+              <input
+                autoFocus
+                value={mobileQ}
+                onChange={(e) => setMobileQ(e.target.value)}
+                placeholder="Search services..."
+                className="bg-transparent outline-none flex-1 text-sm"
+              />
+            </div>
+            <button type="submit" className="bg-gradient-brand text-primary-foreground px-4 py-2.5 rounded-xl font-bold text-sm">
+              Go
+            </button>
+          </form>
+        </div>
+      )}
 
       {open && (
         <div className="md:hidden bg-background/95 backdrop-blur-xl border-t border-border">

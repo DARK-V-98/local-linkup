@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { getUser, clearUser } from "@/lib/auth";
+import { getNotifications, AppNotification } from "@/components/NotificationsDropdown";
 
 interface SidebarItem {
   label: string;
@@ -8,24 +9,21 @@ interface SidebarItem {
   icon: string;
 }
 
-interface Notification {
-  id: string;
-  icon: string;
-  iconColor: string;
-  iconBg: string;
-  title: string;
-  body: string;
-  time: string;
-  read: boolean;
-}
+const TYPE_ICON: Record<AppNotification["type"], { icon: string; color: string; bg: string }> = {
+  booking_new: { icon: "fa-cart-shopping", color: "text-blue-600", bg: "bg-blue-50" },
+  booking_confirmed: { icon: "fa-circle-check", color: "text-emerald-600", bg: "bg-emerald-50" },
+  booking_completed: { icon: "fa-flag-checkered", color: "text-violet-600", bg: "bg-violet-50" },
+  message: { icon: "fa-envelope", color: "text-sky-600", bg: "bg-sky-50" },
+  review: { icon: "fa-star", color: "text-amber-500", bg: "bg-amber-50" },
+};
 
-const DEMO_NOTIFICATIONS: Notification[] = [
-  { id: "n1", icon: "fa-cart-shopping", iconColor: "text-blue-600", iconBg: "bg-blue-50", title: "New Booking", body: "Kamani R. booked your Plumbing service for Oct 28.", time: "2 min ago", read: false },
-  { id: "n2", icon: "fa-star", iconColor: "text-amber-500", iconBg: "bg-amber-50", title: "New Review", body: "Nimal D. left you a 5-star review.", time: "1 hr ago", read: false },
-  { id: "n3", icon: "fa-circle-check", iconColor: "text-emerald-600", iconBg: "bg-emerald-50", title: "Order Completed", body: "Order #BK-4120 marked as completed.", time: "3 hrs ago", read: true },
-  { id: "n4", icon: "fa-money-bill-wave", iconColor: "text-violet-600", iconBg: "bg-violet-50", title: "Payout Processed", body: "Rs. 85,500 sent to your Sampath account.", time: "Yesterday", read: true },
-  { id: "n5", icon: "fa-user-check", iconColor: "text-emerald-600", iconBg: "bg-emerald-50", title: "Verification Approved", body: "Your seller account is now fully verified.", time: "2 days ago", read: true },
-];
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} min ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} hr ago`;
+  if (diff < 172_800_000) return "Yesterday";
+  return `${Math.floor(diff / 86_400_000)} days ago`;
+}
 
 export default function DashboardShell({
   children,
@@ -38,7 +36,7 @@ export default function DashboardShell({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const [notifs, setNotifs] = useState<Notification[]>(DEMO_NOTIFICATIONS);
+  const [notifs, setNotifs] = useState<AppNotification[]>(() => getNotifications());
   const location = useLocation();
   const navigate = useNavigate();
   const notifsRef = useRef<HTMLDivElement>(null);
@@ -51,8 +49,24 @@ export default function DashboardShell({
     navigate("/");
   };
 
-  const markAllRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const refreshNotifs = () => setNotifs(getNotifications());
+
+  useEffect(() => {
+    window.addEventListener("needly-notifications-change", refreshNotifs);
+    return () => window.removeEventListener("needly-notifications-change", refreshNotifs);
+  }, []);
+
+  const markAllRead = () => {
+    const all = getNotifications().map((n) => ({ ...n, read: true }));
+    localStorage.setItem("needly_notifications", JSON.stringify(all));
+    refreshNotifs();
+  };
+
+  const markRead = (id: string) => {
+    const all = getNotifications().map((n) => n.id === id ? { ...n, read: true } : n);
+    localStorage.setItem("needly_notifications", JSON.stringify(all));
+    refreshNotifs();
+  };
 
   // Close notifs panel on outside click
   useEffect(() => {
@@ -177,25 +191,32 @@ export default function DashboardShell({
                     )}
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
-                    {notifs.map((n) => (
-                      <div
-                        key={n.id}
-                        onClick={() => markRead(n.id)}
-                        className={`flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-slate-50 transition ${!n.read ? "bg-blue-50/40" : ""}`}
-                      >
-                        <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 mt-0.5 ${n.iconBg}`}>
-                          <i className={`fas ${n.icon} text-sm ${n.iconColor}`} />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className={`text-xs font-black ${n.read ? "text-slate-700" : "text-slate-900"}`}>{n.title}</span>
-                            {!n.read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{n.body}</p>
-                          <span className="text-[10px] text-slate-400 font-semibold mt-1 block">{n.time}</span>
-                        </div>
+                    {notifs.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-slate-400 text-xs font-semibold">
+                        No notifications yet
                       </div>
-                    ))}
+                    ) : notifs.map((n) => {
+                      const cfg = TYPE_ICON[n.type] ?? TYPE_ICON.message;
+                      return (
+                        <div
+                          key={n.id}
+                          onClick={() => markRead(n.id)}
+                          className={`flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-slate-50 transition ${!n.read ? "bg-blue-50/40" : ""}`}
+                        >
+                          <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 mt-0.5 ${cfg.bg}`}>
+                            <i className={`fas ${cfg.icon} text-sm ${cfg.color}`} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`text-xs font-black ${n.read ? "text-slate-700" : "text-slate-900"}`}>{n.title}</span>
+                              {!n.read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{n.body}</p>
+                            <span className="text-[10px] text-slate-400 font-semibold mt-1 block">{timeAgo(n.createdAt)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="px-4 py-3 border-t border-slate-100 text-center">
                     <button className="text-xs font-bold text-slate-400 hover:text-slate-600 transition">View all notifications</button>

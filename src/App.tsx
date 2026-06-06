@@ -32,6 +32,10 @@ import AdminDisputes from "./pages/admin/Disputes.tsx";
 import AdminUsers from "./pages/admin/Users.tsx";
 import AdminServices from "./pages/admin/Services.tsx";
 import AdminSettings from "./pages/admin/Settings.tsx";
+import AdminCategories from "./pages/admin/Categories.tsx";
+import AdminOrders from "./pages/admin/Orders.tsx";
+import AdminPayments from "./pages/admin/Payments.tsx";
+import AdminSellers from "./pages/admin/Sellers.tsx";
 import SellerSettings from "./pages/dashboard/seller/SellerSettings.tsx";
 import SellerEarnings from "./pages/dashboard/seller/SellerEarnings.tsx";
 import BuyerSettings from "./pages/dashboard/buyer/BuyerSettings.tsx";
@@ -39,6 +43,9 @@ import BuyerPayments from "./pages/dashboard/buyer/BuyerPayments.tsx";
 import SavedSellers from "./pages/dashboard/buyer/SavedSellers.tsx";
 import SellerInbox from "./pages/dashboard/seller/SellerInbox.tsx";
 import NotFound from "./pages/NotFound.tsx";
+
+import { seedLocalStorage } from "./lib/seed";
+seedLocalStorage();
 
 const queryClient = new QueryClient();
 
@@ -75,6 +82,10 @@ const App = () => (
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/admin/services" element={<AdminServices />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/categories" element={<AdminCategories />} />
+          <Route path="/admin/orders" element={<AdminOrders />} />
+          <Route path="/admin/payments" element={<AdminPayments />} />
+          <Route path="/admin/sellers" element={<AdminSellers />} />
           <Route path="/dashboard/seller/settings" element={<SellerSettings />} />
           <Route path="/dashboard/seller/earnings" element={<SellerEarnings />} />
           <Route path="/dashboard/buyer/settings" element={<BuyerSettings />} />

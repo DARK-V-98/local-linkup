@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const steps = [
   { icon: "fa-magnifying-glass", title: "Find", desc: "Search across 100+ categories or browse top-rated sellers near you.", grad: "from-blue-400 to-indigo-500" },
   { icon: "fa-comments", title: "Book & Chat", desc: "Compare quotes, message sellers and book in seconds — securely.", grad: "from-emerald-400 to-green-500" },
@@ -14,12 +16,13 @@ export default function HowItWorks() {
             <i className="fas fa-route text-primary" /> How it works
           </span>
           <h2 className="mt-4 text-2xl sm:text-4xl md:text-5xl font-black tracking-tight">From idea to done in 3 simple steps</h2>
+          <p className="mt-3 text-sm md:text-base text-muted-foreground">No subscriptions. No hidden fees. Just great local service.</p>
         </div>
 
         <div className="relative grid md:grid-cols-3 gap-8">
           <div className="hidden md:block absolute top-12 left-[16%] right-[16%] border-t-2 border-dashed border-foreground/15" />
           {steps.map((s, i) => (
-            <div key={s.title} className="relative bg-card border border-border rounded-3xl p-7 text-center shadow-soft hover:shadow-glass transition">
+            <div key={s.title} className="relative bg-card border border-border rounded-3xl p-7 text-center shadow-soft hover:shadow-glass hover:-translate-y-1 transition-all">
               <div className="relative inline-block">
                 <span className={`grid place-items-center w-20 h-20 rounded-3xl bg-gradient-to-br ${s.grad} text-white shadow-glow`}>
                   <i className={`fas ${s.icon} text-2xl`} />
@@ -30,6 +33,15 @@ export default function HowItWorks() {
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
             </div>
           ))}
+        </div>
+
+        <div className="text-center mt-10">
+          <Link
+            to="/browse"
+            className="inline-flex items-center gap-2 bg-gradient-brand text-primary-foreground px-8 py-3.5 rounded-full font-bold shadow-glow hover:scale-105 transition"
+          >
+            <i className="fas fa-magnifying-glass" /> Start Browsing Services
+          </Link>
         </div>
       </div>
     </section>

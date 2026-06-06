@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const TESTIMONIALS = [
   {
     name: "Kamani Rathnayake",
@@ -55,7 +57,38 @@ const TESTIMONIALS = [
   },
 ];
 
+function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
+  return (
+    <div className="bg-card border border-border rounded-3xl p-6 flex flex-col gap-4 hover:-translate-y-0.5 hover:shadow-glass transition">
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <i key={s} className={`fas fa-star text-sm ${s <= t.rating ? "text-amber-400" : "text-muted"}`} />
+        ))}
+      </div>
+      <p className="text-sm text-foreground/80 leading-relaxed flex-1">
+        <i className="fas fa-quote-left text-primary/20 mr-1 text-lg align-[-2px]" />
+        {t.text}
+      </p>
+      <span className="inline-flex w-fit items-center gap-1.5 bg-primary/5 text-primary text-[10px] font-bold px-3 py-1 rounded-full">
+        <i className="fas fa-tag" /> {t.service}
+      </span>
+      <div className="flex items-center gap-3 pt-1 border-t border-border">
+        <span className={`w-10 h-10 rounded-full bg-gradient-to-br ${t.color} text-white grid place-items-center font-black text-sm shadow-soft shrink-0`}>
+          {t.avatar}
+        </span>
+        <div>
+          <div className="text-sm font-black text-foreground">{t.name}</div>
+          <div className="text-[11px] text-muted-foreground">{t.role}</div>
+        </div>
+        <i className="fas fa-circle-check text-emerald-500 ml-auto text-sm" title="Verified review" />
+      </div>
+    </div>
+  );
+}
+
 export default function TestimonialsSection() {
+  const [activeIdx, setActiveIdx] = useState(0);
+
   return (
     <section className="py-20 bg-gradient-to-b from-slate-50/50 to-background overflow-hidden">
       <div className="container mx-auto px-4">
@@ -88,44 +121,41 @@ export default function TestimonialsSection() {
           ))}
         </div>
 
-        {/* Testimonials grid — 2 rows, 3 cols on desktop, scrollable on mobile */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Desktop grid */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {TESTIMONIALS.map((t) => (
-            <div
-              key={t.name}
-              className="bg-card border border-border rounded-3xl p-6 flex flex-col gap-4 hover:-translate-y-0.5 hover:shadow-glass transition"
-            >
-              {/* Stars */}
-              <div className="flex gap-0.5">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <i key={s} className={`fas fa-star text-sm ${s <= t.rating ? "text-amber-400" : "text-muted"}`} />
-                ))}
-              </div>
-
-              {/* Quote */}
-              <p className="text-sm text-foreground/80 leading-relaxed flex-1">
-                <i className="fas fa-quote-left text-primary/20 mr-1 text-lg align-[-2px]" />
-                {t.text}
-              </p>
-
-              {/* Service tag */}
-              <span className="inline-flex w-fit items-center gap-1.5 bg-primary/5 text-primary text-[10px] font-bold px-3 py-1 rounded-full">
-                <i className="fas fa-tag" /> {t.service}
-              </span>
-
-              {/* Author */}
-              <div className="flex items-center gap-3 pt-1 border-t border-border">
-                <span className={`w-10 h-10 rounded-full bg-gradient-to-br ${t.color} text-white grid place-items-center font-black text-sm shadow-soft shrink-0`}>
-                  {t.avatar}
-                </span>
-                <div>
-                  <div className="text-sm font-black text-foreground">{t.name}</div>
-                  <div className="text-[11px] text-muted-foreground">{t.role}</div>
-                </div>
-                <i className="fas fa-circle-check text-emerald-500 ml-auto text-sm" title="Verified review" />
-              </div>
-            </div>
+            <TestimonialCard key={t.name} t={t} />
           ))}
+        </div>
+
+        {/* Mobile carousel */}
+        <div className="sm:hidden">
+          <div className="overflow-hidden">
+            <TestimonialCard t={TESTIMONIALS[activeIdx]} />
+          </div>
+          <div className="flex justify-center items-center gap-3 mt-6">
+            <button
+              onClick={() => setActiveIdx((i) => (i - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}
+              className="w-8 h-8 rounded-full bg-foreground/5 hover:bg-foreground/10 grid place-items-center transition"
+            >
+              <i className="fas fa-chevron-left text-xs" />
+            </button>
+            <div className="flex gap-1.5">
+              {TESTIMONIALS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveIdx(i)}
+                  className={`rounded-full transition-all ${i === activeIdx ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-foreground/20"}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setActiveIdx((i) => (i + 1) % TESTIMONIALS.length)}
+              className="w-8 h-8 rounded-full bg-foreground/5 hover:bg-foreground/10 grid place-items-center transition"
+            >
+              <i className="fas fa-chevron-right text-xs" />
+            </button>
+          </div>
         </div>
       </div>
     </section>

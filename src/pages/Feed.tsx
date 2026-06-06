@@ -1,21 +1,37 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
 import PostComposer from "@/components/feed/PostComposer";
 import PostCard from "@/components/feed/PostCard";
-import { MOCK_FEED_POSTS } from "@/data/feed";
+import { MOCK_FEED_POSTS, FeedPost } from "@/data/feed";
 import { MOCK_CATEGORIES } from "@/data/mock";
 import { usePageTitle } from "@/lib/usePageTitle";
+
+function getStoredPosts(): FeedPost[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
+    return raw.map((p: FeedPost & { postedAt: string }) => ({ ...p, postedAt: new Date(p.postedAt) }));
+  } catch { return []; }
+}
 
 export default function Feed() {
   usePageTitle("Service Feed");
   const [filter, setFilter] = useState<string>("All");
+  const [userPosts, setUserPosts] = useState<FeedPost[]>(getStoredPosts);
+
+  useEffect(() => {
+    const refresh = () => setUserPosts(getStoredPosts());
+    window.addEventListener("needly-feed-change", refresh);
+    return () => window.removeEventListener("needly-feed-change", refresh);
+  }, []);
+
+  const allPosts = useMemo(() => [...userPosts, ...MOCK_FEED_POSTS], [userPosts]);
 
   const posts = useMemo(() => {
-    if (filter === "All") return MOCK_FEED_POSTS;
-    return MOCK_FEED_POSTS.filter((p) => p.category === filter);
-  }, [filter]);
+    if (filter === "All") return allPosts;
+    return allPosts.filter((p) => p.category === filter);
+  }, [filter, allPosts]);
 
   const filters = ["All", ...MOCK_CATEGORIES.slice(0, 6).map((c) => c.name)];
 

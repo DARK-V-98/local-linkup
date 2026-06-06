@@ -1,4 +1,5 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileNav from "@/components/layout/MobileNav";
@@ -13,7 +14,7 @@ function StarRating({ rating }: { rating: number }) {
   return (
     <span className="inline-flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
-        <i key={i} className={`fas fa-star text-xs ${i <= Math.floor(rating) ? "text-amber-400" : "text-slate-200"}`} />
+        <i key={i} className={`fas fa-star text-xs ${i <= Math.floor(rating) ? "text-amber-400" : i - 0.5 <= rating ? "text-amber-300" : "text-slate-200"}`} />
       ))}
     </span>
   );
@@ -21,7 +22,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function VendorProfile() {
   const { vendorSlug } = useParams<{ vendorSlug: string }>();
-  const navigate = useNavigate();
+  const [reviewFilter, setReviewFilter] = useState<number | "all">("all");
 
   const vendorServices = allServices.filter(
     (s) => s.seller.toLowerCase().replace(/[^a-z0-9]/g, "-") === vendorSlug
@@ -40,10 +41,16 @@ export default function VendorProfile() {
     );
   }
 
-  const vendorReviews = MOCK_REVIEWS.filter((r) => vendorServices.some((s) => s.id === r.serviceId));
+  const allVendorReviews = MOCK_REVIEWS.filter((r) => vendorServices.some((s) => s.id === r.serviceId));
+  const filteredReviews = reviewFilter === "all" ? allVendorReviews : allVendorReviews.filter((r) => Math.floor(r.rating) === reviewFilter);
   const avgRating = vendorServices.reduce((a, s) => a + s.rating, 0) / vendorServices.length;
   const totalReviews = vendorServices.reduce((a, s) => a + s.reviews, 0);
   const whatsappMsg = encodeURIComponent(`Hi ${vendor.seller}, I found your profile on Needly and I'm interested in your services.`);
+
+  const ratingCounts = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: allVendorReviews.filter((r) => Math.floor(r.rating) === star).length,
+  }));
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -81,9 +88,12 @@ export default function VendorProfile() {
                       <i className="fas fa-shield-halved text-[10px]" /> Verified Seller
                     </span>
                   )}
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-600 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Available
+                  </span>
                 </div>
 
-                <p className="text-muted-foreground mb-4">{vendor.sellerBio}</p>
+                <p className="text-muted-foreground mb-4 max-w-xl">{vendor.sellerBio}</p>
 
                 <div className="flex flex-wrap gap-5 text-sm">
                   <span className="flex items-center gap-1.5 font-semibold">
@@ -103,6 +113,10 @@ export default function VendorProfile() {
                     <i className="fas fa-location-dot text-primary text-xs" />
                     {vendor.location}
                   </span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground font-semibold">
+                    <i className="fas fa-clock text-primary text-xs" />
+                    Responds within 1 hour
+                  </span>
                 </div>
               </div>
 
@@ -115,6 +129,12 @@ export default function VendorProfile() {
                 >
                   <i className="fab fa-whatsapp text-lg" /> WhatsApp
                 </a>
+                <Link
+                  to={`/service/${vendorServices[0]?.id}`}
+                  className="flex items-center justify-center gap-2 bg-gradient-brand text-primary-foreground px-6 py-3 rounded-2xl font-bold text-sm shadow-glow hover:scale-105 transition"
+                >
+                  <i className="fas fa-calendar-check" /> Book Now
+                </Link>
               </div>
             </div>
           </div>
@@ -152,12 +172,45 @@ export default function VendorProfile() {
               </div>
             </div>
 
-            {/* Reviews */}
-            {vendorReviews.length > 0 && (
-              <div className="bg-card border border-border rounded-3xl p-6">
-                <h2 className="text-xl font-black mb-6">Customer Reviews</h2>
+            {/* Reviews with filter */}
+            <div className="bg-card border border-border rounded-3xl p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h2 className="text-xl font-black">Customer Reviews</h2>
+                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                  {(["all", 5, 4, 3, 2, 1] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setReviewFilter(v)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${reviewFilter === v ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+                    >
+                      {v === "all" ? "All" : `${v}★`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rating breakdown */}
+              <div className="mb-6 space-y-2">
+                {ratingCounts.map(({ star, count }) => (
+                  <div key={star} className="flex items-center gap-3 text-xs">
+                    <span className="font-bold text-slate-600 w-4">{star}</span>
+                    <i className="fas fa-star text-amber-400 text-[10px]" />
+                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all"
+                        style={{ width: allVendorReviews.length > 0 ? `${(count / allVendorReviews.length) * 100}%` : "0%" }}
+                      />
+                    </div>
+                    <span className="text-slate-400 font-semibold w-4">{count}</span>
+                  </div>
+                ))}
+              </div>
+
+              {filteredReviews.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No reviews for this filter.</p>
+              ) : (
                 <div className="space-y-5">
-                  {vendorReviews.map((r) => (
+                  {filteredReviews.map((r) => (
                     <div key={r.id} className="border-b border-border last:border-0 pb-5 last:pb-0">
                       <div className="flex items-start gap-3">
                         <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-brand text-primary-foreground text-sm font-black shrink-0">
@@ -175,8 +228,8 @@ export default function VendorProfile() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Sidebar */}
@@ -190,6 +243,7 @@ export default function VendorProfile() {
                   { label: "Total Jobs", val: vendor.sellerJobs?.toString() ?? "–", icon: "fa-briefcase", color: "text-primary" },
                   { label: "Total Reviews", val: totalReviews.toString(), icon: "fa-comments", color: "text-violet-500" },
                   { label: "Services Listed", val: vendorServices.length.toString(), icon: "fa-list", color: "text-emerald-500" },
+                  { label: "Response Time", val: "< 1 hour", icon: "fa-clock", color: "text-blue-500" },
                 ].map((s) => (
                   <div key={s.label} className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-muted-foreground font-semibold">
@@ -210,6 +264,7 @@ export default function VendorProfile() {
                   { done: true, label: "Phone Verified" },
                   { done: vendor.sellerVerified, label: "Background Checked" },
                   { done: (vendor.sellerJobs ?? 0) > 10, label: "10+ Jobs Completed" },
+                  { done: avgRating >= 4.5, label: "Top Rated Seller" },
                 ].map((t) => (
                   <div key={t.label} className="flex items-center gap-2.5 text-sm">
                     <i className={`fas ${t.done ? "fa-circle-check text-emerald-500" : "fa-circle text-slate-300"} text-sm`} />
@@ -217,6 +272,22 @@ export default function VendorProfile() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Availability */}
+            <div className="bg-card border border-border rounded-3xl p-6">
+              <h3 className="font-black mb-4">Availability</h3>
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-muted-foreground">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
+                  <div key={d} className="flex flex-col items-center gap-1">
+                    <span>{d}</span>
+                    <span className={`w-6 h-6 rounded-full grid place-items-center text-[9px] ${i < 5 ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                      {i < 5 ? <i className="fas fa-check" /> : <i className="fas fa-xmark" />}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 text-center">Available Mon–Fri, 8am–8pm</p>
             </div>
 
             {/* CTA */}

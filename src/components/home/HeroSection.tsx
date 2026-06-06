@@ -64,10 +64,10 @@ export default function HeroSection() {
   return (
     <section className="relative pt-24 sm:pt-28 md:pt-36 pb-12 sm:pb-20 md:pb-32 overflow-hidden bg-gradient-hero">
       <div className="absolute inset-0 grid-overlay pointer-events-none" />
-      {/* Morphing blobs */}
-      <div className="absolute -top-20 -left-20 w-80 h-80 bg-primary/15 animate-morph blur-3xl" />
-      <div className="absolute top-40 -right-24 w-96 h-96 bg-secondary/15 animate-morph blur-3xl" style={{ animationDelay: "-4s" }} />
-      <div className="absolute bottom-0 left-1/3 w-72 h-72 bg-amber-300/20 animate-morph blur-3xl" style={{ animationDelay: "-8s" }} />
+      {/* Morphing blobs — hidden on mobile to prevent clutter */}
+      <div className="hidden sm:block absolute -top-20 -left-20 w-80 h-80 bg-primary/15 animate-morph blur-3xl" />
+      <div className="hidden sm:block absolute top-40 -right-24 w-96 h-96 bg-secondary/15 animate-morph blur-3xl" style={{ animationDelay: "-4s" }} />
+      <div className="hidden sm:block absolute bottom-0 left-1/3 w-72 h-72 bg-amber-300/20 animate-morph blur-3xl" style={{ animationDelay: "-8s" }} />
 
       <div className="container mx-auto relative grid lg:grid-cols-2 gap-12 items-center">
         <div className="text-center lg:text-left">
@@ -160,7 +160,21 @@ export default function HeroSection() {
             )}
           </div>
 
-          <div className="mt-7 flex flex-wrap justify-center lg:justify-start gap-2.5">
+          {/* Popular search chips */}
+          <div className="mt-5 flex flex-wrap justify-center lg:justify-start gap-2">
+            {POPULAR_SEARCHES.slice(0, 5).map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => navigate(`/browse?q=${encodeURIComponent(s.label)}`)}
+                className="inline-flex items-center gap-1.5 bg-background/70 backdrop-blur border border-border hover:border-primary/50 hover:bg-primary/5 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+              >
+                <i className={`fas ${s.icon} text-primary text-[10px]`} /> {s.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-center lg:justify-start gap-2.5">
             {[
               ["fa-shield-halved", "Verified Sellers"],
               ["fa-lock", "Secure Payments"],

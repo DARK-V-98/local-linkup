@@ -4,6 +4,7 @@ import { getBookings, updateBookingStatus, StoredBooking } from "@/lib/store";
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
+import { addNotification } from "@/components/NotificationsDropdown";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -13,36 +14,6 @@ const sellerSidebarItems = [
   { label: "Settings", to: "/dashboard/seller/settings", icon: "fa-user-gear" },
 ];
 
-const DEMO_ORDERS: StoredBooking[] = [
-  {
-    id: "BK001", serviceId: "t1", serviceTitle: "Premium WordPress Website Development", category: "Technology", categoryIcon: "fas fa-laptop-code",
-    vendorName: "Tharindu P.", vendorPhone: "+94771234567", vendorInitial: "T", vendorVerified: true,
-    customerName: "Priya Madhushani", customerPhone: "+94771111111", date: "2026-05-28", time: "10:00",
-    notes: "Need it completed before June 15th", extraData: { "Project Brief": "E-commerce site for clothing store" }, price: 25000, district: "Colombo",
-    status: "pending", createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
-  },
-  {
-    id: "BK002", serviceId: "l2", serviceTitle: "AC Repair & Servicing", category: "Repairs", categoryIcon: "fas fa-snowflake",
-    vendorName: "Ravi M.", vendorPhone: "+94762222222", vendorInitial: "R", vendorVerified: false,
-    customerName: "Suresh Bandara", customerPhone: "+94762222222", date: "2026-05-27", time: "14:00",
-    notes: "", extraData: {}, price: 3500, district: "Colombo",
-    status: "confirmed", createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "BK003", serviceId: "l7", serviceTitle: "Car Full Detailing", category: "Vehicle Service", categoryIcon: "fas fa-car-side",
-    vendorName: "Pradeep N.", vendorPhone: "+94777777777", vendorInitial: "P", vendorVerified: true,
-    customerName: "Dilani Fernando", customerPhone: "+94773333333", date: "2026-05-23", time: "09:00",
-    notes: "Sedan, dark blue", extraData: { "Vehicle Make & Model": "Toyota Axio 2017", "Registration Number": "CAF-8821" }, price: 9500, district: "Colombo",
-    status: "in_progress", createdAt: new Date(Date.now() - 4 * 86400000).toISOString(),
-  },
-  {
-    id: "BK004", serviceId: "t2", serviceTitle: "Luxury Home Deep Cleaning", category: "Home Services", categoryIcon: "fas fa-gem",
-    vendorName: "Tharindu P.", vendorPhone: "+94771234567", vendorInitial: "T", vendorVerified: true,
-    customerName: "Kavinda Rajapaksa", customerPhone: "+94774444444", date: "2026-05-10", time: "08:00",
-    notes: "", extraData: {}, price: 8500, district: "Kandy",
-    status: "completed", createdAt: new Date(Date.now() - 16 * 86400000).toISOString(),
-  },
-];
 
 type TabKey = "all" | "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
 
@@ -81,16 +52,13 @@ export default function SellerOrders() {
   const [declineReason, setDeclineReason] = useState("");
 
   const refresh = () => {
-    const stored = getBookings();
-    setOrders([...DEMO_ORDERS, ...stored]);
+    setOrders(getBookings());
   };
 
   useEffect(() => { refresh(); }, []);
 
   const changeStatus = (id: string, status: StoredBooking["status"]) => {
-    if (!id.startsWith("BK0")) {
-      updateBookingStatus(id, status);
-    }
+    updateBookingStatus(id, status);
     setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
     const labels: Record<string, string> = {
       confirmed: "Order accepted! Customer notified.",
@@ -99,6 +67,16 @@ export default function SellerOrders() {
       cancelled: "Order declined.",
     };
     toast.success(labels[status] ?? "Status updated.");
+    const order = orders.find((o) => o.id === id);
+    if (order) {
+      const notifMap: Partial<Record<StoredBooking["status"], { title: string; body: string }>> = {
+        confirmed: { title: "Order Accepted", body: `You accepted a booking for ${order.serviceTitle} from ${order.customerName}.` },
+        completed: { title: "Order Completed", body: `${order.serviceTitle} for ${order.customerName} marked as complete.` },
+        cancelled: { title: "Order Declined", body: `Booking for ${order.serviceTitle} was declined.` },
+      };
+      const n = notifMap[status];
+      if (n) addNotification({ type: "booking_confirmed", title: n.title, body: n.body, link: `/dashboard/seller/orders` });
+    }
   };
 
   const handleDecline = (id: string) => {

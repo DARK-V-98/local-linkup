@@ -12,6 +12,13 @@ export default function Footer() {
       toast.error("Please enter a valid email address.");
       return;
     }
+    try {
+      const existing: string[] = JSON.parse(localStorage.getItem("needly_newsletter") ?? "[]");
+      if (!existing.includes(email.trim())) {
+        existing.push(email.trim());
+        localStorage.setItem("needly_newsletter", JSON.stringify(existing));
+      }
+    } catch { /* ignore */ }
     setSubscribed(true);
     toast.success("You're subscribed! Weekly deals & new sellers straight to your inbox.");
   };
@@ -81,13 +88,21 @@ export default function Footer() {
             Sri Lanka's trusted marketplace connecting buyers with verified local pros across every category.
           </p>
           <div className="flex gap-3 mt-5">
-            {["facebook-f", "instagram", "x-twitter", "linkedin-in"].map((s) => (
+            {[
+              { icon: "facebook-f", label: "Facebook", href: "https://facebook.com" },
+              { icon: "instagram", label: "Instagram", href: "https://instagram.com" },
+              { icon: "x-twitter", label: "X / Twitter", href: "https://x.com" },
+              { icon: "linkedin-in", label: "LinkedIn", href: "https://linkedin.com" },
+            ].map((s) => (
               <a
-                key={s}
-                href="#"
+                key={s.icon}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={s.label}
                 className="grid place-items-center w-9 h-9 rounded-full bg-white/5 hover:bg-primary hover:text-primary-foreground transition"
               >
-                <i className={`fab fa-${s} text-sm`} />
+                <i className={`fab fa-${s.icon} text-sm`} />
               </a>
             ))}
           </div>
@@ -102,7 +117,6 @@ export default function Footer() {
               ["Emergency", "/emergency"],
               ["Service Feed", "/feed"],
               ["Buyer Dashboard", "/dashboard/buyer"],
-              ["Admin Panel", "/admin"],
             ],
           },
           {
@@ -119,8 +133,7 @@ export default function Footer() {
             title: "Company",
             links: [
               ["About Us", "/about"],
-              ["Contact", "/contact"],
-              ["Careers", "/contact"],
+              ["Contact Us", "/contact"],
             ],
           },
           {
@@ -128,7 +141,7 @@ export default function Footer() {
             links: [
               ["Terms of Service", "/terms"],
               ["Privacy Policy", "/privacy"],
-              ["Trust & Safety", "/terms"],
+              ["Trust & Safety", "/about"],
             ],
           },
         ].map((col) => (

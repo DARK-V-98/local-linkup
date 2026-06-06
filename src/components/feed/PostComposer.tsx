@@ -20,6 +20,31 @@ export default function PostComposer() {
     if (!title.trim() || !desc.trim()) return;
     setSubmitting(true);
     setTimeout(() => {
+      const newPost = {
+        id: `user_${Date.now()}`,
+        author: user?.name ?? "User",
+        initial: initial ?? "U",
+        role: "Individual Seller" as const,
+        verified: false,
+        location: user?.district ?? "Sri Lanka",
+        category: category || "General",
+        categoryIcon: "fas fa-tag",
+        postedAt: new Date().toISOString(),
+        title: title.trim(),
+        description: desc.trim(),
+        price: price ? parseInt(price) : undefined,
+        priceType: "Negotiable" as const,
+        tags: [],
+        likes: 0,
+        shares: 0,
+        comments: [],
+      };
+      try {
+        const existing = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
+        existing.unshift(newPost);
+        localStorage.setItem("needly_feed_posts", JSON.stringify(existing));
+        window.dispatchEvent(new Event("needly-feed-change"));
+      } catch { /* ignore */ }
       toast.success("Post published! Buyers can now discover your service.");
       setSubmitting(false);
       setOpen(false);

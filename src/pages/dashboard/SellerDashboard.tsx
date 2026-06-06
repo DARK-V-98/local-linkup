@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { getBookings, getMyServices } from "@/lib/store";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const sellerSidebarItems = [
@@ -12,18 +14,44 @@ const sellerSidebarItems = [
   { label: "Settings", to: "/dashboard/seller/settings", icon: "fa-user-gear" },
 ];
 
-const earningsData = [
-  { day: 'Mon', amount: 12000 },
-  { day: 'Tue', amount: 18000 },
-  { day: 'Wed', amount: 15000 },
-  { day: 'Thu', amount: 22000 },
-  { day: 'Fri', amount: 31000 },
-  { day: 'Sat', amount: 28000 },
-  { day: 'Sun', amount: 16500 },
-];
+function buildEarningsChart(days: number) {
+  const now = new Date();
+  const labels = Array.from({ length: days }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (days - 1 - i));
+    return days <= 7
+      ? d.toLocaleDateString("en-US", { weekday: "short" })
+      : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
+  const bookings = getBookings();
+  return labels.map((label, i) => {
+    const d = new Date(now);
+    d.setDate(d.getDate() - (days - 1 - i));
+    const dayStr = d.toISOString().split("T")[0];
+    const amount = bookings
+      .filter((b) => b.status === "completed" && b.createdAt.startsWith(dayStr))
+      .reduce((sum, b) => sum + b.price, 0);
+    return { label, amount };
+  });
+}
 
 export default function SellerDashboard() {
   usePageTitle("Seller Dashboard");
+  const [period, setPeriod] = useState<7 | 30>(7);
+  const [earningsData, setEarningsData] = useState(() => buildEarningsChart(7));
+  const [bookings, setBookings] = useState(() => getBookings());
+  const [myServices, setMyServices] = useState(() => getMyServices());
+
+  useEffect(() => {
+    setEarningsData(buildEarningsChart(period));
+    setBookings(getBookings());
+    setMyServices(getMyServices());
+  }, [period]);
+
+  const activeOrders = bookings.filter((b) => b.status === "pending" || b.status === "in_progress" || b.status === "confirmed").length;
+  const netEarnings = bookings.filter((b) => b.status === "completed").reduce((s, b) => s + b.price, 0);
+  const recentOrders = bookings.slice(0, 3);
+
   return (
     <DashboardShell role="Verified Seller" sidebarItems={sellerSidebarItems}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
@@ -39,9 +67,9 @@ export default function SellerDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {[
-          { label: "Active Orders", val: "14", icon: "fa-clock-rotate-left", color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Net Earnings", val: formatPrice(142500), icon: "fa-wallet", color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Profile Rating", val: "4.9/5", icon: "fa-star", color: "text-amber-600", bg: "bg-amber-50" },
+          { label: "Active Orders", val: activeOrders.toString(), icon: "fa-clock-rotate-left", color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "Net Earnings", val: netEarnings > 0 ? formatPrice(netEarnings) : "Rs. 0", icon: "fa-wallet", color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "My Services", val: myServices.length.toString(), icon: "fa-briefcase", color: "text-amber-600", bg: "bg-amber-50" },
         ].map((stat) => (
           <div key={stat.label} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft flex items-center gap-6">
             <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl grid place-items-center shrink-0`}>
@@ -60,24 +88,34 @@ export default function SellerDashboard() {
         <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft">
            <div className="flex items-center justify-between mb-8">
               <h3 className="font-black text-xl text-slate-900">Earnings Trends</h3>
-              <select className="bg-slate-100 border-none text-xs font-bold rounded-xl px-3 py-1.5 focus:ring-0">
-                 <option>Last 7 Days</option>
-                 <option>Last 30 Days</option>
-              </select>
+              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                {([7, 30] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setPeriod(d)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition ${period === d ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
+                  >
+                    {d === 7 ? "7 Days" : "30 Days"}
+                  </button>
+                ))}
+              </div>
            </div>
+           {earningsData.every((d) => d.amount === 0) && (
+             <p className="text-xs text-slate-400 text-center mb-4">No completed bookings yet — data will appear here once orders are marked complete.</p>
+           )}
            <div className="h-[250px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={earningsData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#94a3b8'}} dy={10} />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600, fill: '#94a3b8'}} dy={10} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
-                    <Tooltip 
+                    <Tooltip
                        cursor={{fill: 'transparent'}}
                        contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                     />
                     <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={32}>
                        {earningsData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 4 ? 'hsl(var(--primary))' : '#e2e8f0'} />
+                          <Cell key={`cell-${index}`} fill={entry.amount > 0 ? 'hsl(var(--primary))' : '#e2e8f0'} />
                        ))}
                     </Bar>
                  </BarChart>
@@ -117,27 +155,34 @@ export default function SellerDashboard() {
             <Link to="/dashboard/seller/orders" className="text-sm font-bold text-primary hover:underline">Manage All</Link>
           </div>
           <div className="divide-y divide-slate-50">
-             {[
-               { id: "#4821", buyer: "Amaya R.", service: "Modern Logo Design", price: 8500, status: "In Progress", statusColor: "text-blue-500 bg-blue-50" },
-               { id: "#4818", buyer: "Kasun J.", service: "Business Cards Pack", price: 3500, status: "Pending", statusColor: "text-amber-500 bg-amber-50" },
-               { id: "#4815", buyer: "Dimuthu N.", service: "Social Media Kit", price: 12000, status: "Completed", statusColor: "text-emerald-500 bg-emerald-50" },
-             ].map((order) => (
-               <div key={order.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 grid place-items-center">
-                       <i className="fas fa-file-invoice text-slate-400" />
-                    </div>
-                    <div>
-                       <div className="font-bold text-slate-900">{order.service}</div>
-                       <div className="text-xs text-slate-400 font-semibold">Ordered by {order.buyer} · {order.id}</div>
-                    </div>
+             {recentOrders.length === 0 ? (
+               <div className="p-8 text-center text-slate-400 text-sm">No orders yet. Share your services to start receiving bookings.</div>
+             ) : recentOrders.map((order) => {
+               const statusColors: Record<string, string> = {
+                 pending: "text-amber-500 bg-amber-50",
+                 confirmed: "text-blue-500 bg-blue-50",
+                 in_progress: "text-violet-500 bg-violet-50",
+                 completed: "text-emerald-500 bg-emerald-50",
+                 cancelled: "text-red-500 bg-red-50",
+               };
+               return (
+                 <div key={order.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 grid place-items-center">
+                         <i className="fas fa-file-invoice text-slate-400" />
+                      </div>
+                      <div>
+                         <div className="font-bold text-slate-900 line-clamp-1">{order.serviceTitle}</div>
+                         <div className="text-xs text-slate-400 font-semibold">by {order.customerName} · {order.id}</div>
+                      </div>
+                   </div>
+                   <div className="text-right shrink-0">
+                      <div className="font-black text-slate-900">{formatPrice(order.price)}</div>
+                      <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${statusColors[order.status] ?? "text-slate-500 bg-slate-100"}`}>{order.status.replace("_", " ")}</div>
+                   </div>
                  </div>
-                 <div className="text-right">
-                    <div className="font-black text-slate-900">{formatPrice(order.price)}</div>
-                    <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${order.statusColor}`}>{order.status}</div>
-                 </div>
-               </div>
-             ))}
+               );
+             })}
           </div>
         </div>
 
@@ -145,29 +190,30 @@ export default function SellerDashboard() {
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft p-8">
           <h3 className="font-black text-xl text-slate-900 mb-6">Service Performance</h3>
           <div className="space-y-5">
-             {[
-               { name: "Modern Logo Design", views: 1242, orders: 42, conversion: "3.4%" },
-               { name: "Business Cards Pack", views: 856, orders: 12, conversion: "1.4%" },
-               { name: "Social Media Kit", views: 2104, orders: 67, conversion: "3.2%" },
-             ].map((s) => (
-               <div key={s.name} className="p-5 border border-slate-100 rounded-2xl">
-                  <div className="font-bold text-slate-900 mb-3">{s.name}</div>
-                  <div className="grid grid-cols-3 gap-4">
-                     <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase">Views</div>
-                        <div className="text-sm font-black text-slate-700">{s.views}</div>
-                     </div>
-                     <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase">Orders</div>
-                        <div className="text-sm font-black text-slate-700">{s.orders}</div>
-                     </div>
-                     <div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase">Conv.</div>
-                        <div className="text-sm font-black text-primary">{s.conversion}</div>
-                     </div>
-                  </div>
-               </div>
-             ))}
+             {myServices.length === 0 ? (
+               <p className="text-sm text-slate-400 text-center py-4">Create services to see performance data here.</p>
+             ) : myServices.slice(0, 3).map((s) => {
+               const conv = s.views > 0 ? ((s.orders / s.views) * 100).toFixed(1) + "%" : "0%";
+               return (
+                 <div key={s.id} className="p-5 border border-slate-100 rounded-2xl">
+                    <div className="font-bold text-slate-900 mb-3 line-clamp-1">{s.title}</div>
+                    <div className="grid grid-cols-3 gap-4">
+                       <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Views</div>
+                          <div className="text-sm font-black text-slate-700">{s.views}</div>
+                       </div>
+                       <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Orders</div>
+                          <div className="text-sm font-black text-slate-700">{s.orders}</div>
+                       </div>
+                       <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Conv.</div>
+                          <div className="text-sm font-black text-primary">{conv}</div>
+                       </div>
+                    </div>
+                 </div>
+               );
+             })}
           </div>
         </div>
       </div>

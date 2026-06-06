@@ -1,11 +1,21 @@
-const stats = [
-  { icon: "fa-users", value: "2,500+", label: "Active Sellers" },
-  { icon: "fa-circle-check", value: "18,000+", label: "Tasks Completed" },
-  { icon: "fa-table-cells-large", value: "100+", label: "Categories" },
-  { icon: "fa-star", value: "4.9 / 5", label: "Average Rating" },
-];
+import { useEffect, useState } from "react";
+import { getBookings } from "@/lib/store";
 
 export default function StatsStrip() {
+  const [taskCount, setTaskCount] = useState("18,000+");
+
+  useEffect(() => {
+    const stored = getBookings().length;
+    if (stored > 0) setTaskCount(`${(18000 + stored).toLocaleString()}+`);
+  }, []);
+
+  const stats = [
+    { icon: "fa-users", value: "2,500+", label: "Active Sellers" },
+    { icon: "fa-circle-check", value: taskCount, label: "Tasks Completed" },
+    { icon: "fa-table-cells-large", value: "100+", label: "Categories" },
+    { icon: "fa-star", value: "4.9 / 5", label: "Average Rating" },
+  ];
+
   return (
     <section className="container mx-auto">
       <div className="relative bg-slate-900 rounded-[2rem] p-8 md:p-12 overflow-hidden">
@@ -27,4 +37,3 @@ export default function StatsStrip() {
     </section>
   );
 }
-
