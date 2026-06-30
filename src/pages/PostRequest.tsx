@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { toast } from "sonner";
 import { MOCK_CATEGORIES, SL_DISTRICTS } from "@/data/mock";
@@ -80,9 +78,8 @@ export default function PostRequest() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
 
         {/* Hero */}
         <section className="bg-gradient-to-b from-background to-slate-50 border-b border-border py-14">
@@ -417,10 +414,8 @@ export default function PostRequest() {
           </section>
         )}
 
-      </main>
-      <Footer />
-      <MobileNav />
+      </div>
       <WhatsAppButton />
-    </div>
+    </AppShell>
   );
 }

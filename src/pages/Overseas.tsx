@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { toast } from "sonner";
 
@@ -115,9 +113,8 @@ export default function Overseas() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
 
         {/* Hero */}
         <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-hero">
@@ -329,10 +326,8 @@ export default function Overseas() {
           </div>
         </section>
 
-      </main>
-      <Footer />
-      <MobileNav />
+      </div>
       <WhatsAppButton />
-    </div>
+    </AppShell>
   );
 }

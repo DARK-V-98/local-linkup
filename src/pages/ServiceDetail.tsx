@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { addBooking, generateId } from "@/lib/store";
@@ -175,9 +173,8 @@ export default function ServiceDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
         {/* Breadcrumb */}
         <div className="container mx-auto px-4 py-4">
           <nav className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
@@ -561,9 +558,7 @@ export default function ServiceDetail() {
             </div>
           </section>
         )}
-      </main>
-      <Footer />
-      <MobileNav />
-    </div>
+      </div>
+    </AppShell>
   );
 }

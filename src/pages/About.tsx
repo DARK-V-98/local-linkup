@@ -1,14 +1,12 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import AppShell from "@/components/layout/AppShell";
 import { Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function About() {
   usePageTitle("About Needlyy");
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
         {/* Hero Section */}
         <section className="relative py-24 md:py-32 overflow-hidden bg-gradient-hero">
           <div className="absolute inset-0 grid-overlay pointer-events-none opacity-40" />
@@ -117,8 +115,7 @@ export default function About() {
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </AppShell>
   );
 }

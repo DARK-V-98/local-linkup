@@ -1,5 +1,4 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import AppShell from "@/components/layout/AppShell";
 import { useState } from "react";
 import { toast } from "sonner";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -19,10 +18,9 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-20 pb-20">
-        <section className="relative py-20 md:py-32 overflow-hidden bg-gradient-hero">
+    <AppShell fullBleed>
+      <div className="pb-10">
+        <section className="relative py-12 md:py-20 overflow-hidden bg-gradient-hero">
           <div className="absolute inset-0 grid-overlay pointer-events-none opacity-40" />
           <div className="container mx-auto relative grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -108,8 +106,7 @@ export default function Contact() {
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </div>
+      </div>
+    </AppShell>
   );
 }

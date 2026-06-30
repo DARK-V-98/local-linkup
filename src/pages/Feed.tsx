@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import PostComposer from "@/components/feed/PostComposer";
 import PostCard from "@/components/feed/PostCard";
 import { MOCK_FEED_POSTS, FeedPost } from "@/data/feed";
@@ -36,11 +34,8 @@ export default function Feed() {
   const filters = ["All", ...MOCK_CATEGORIES.slice(0, 6).map((c) => c.name)];
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
-      <Header />
-      <MobileNav />
-
-      <main className="container mx-auto pt-24 md:pt-28 pb-32 md:pb-12">
+    <AppShell fullBleed>
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-6 pb-10">
         {/* Page heading */}
         <header className="text-center max-w-2xl mx-auto mb-6">
           <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full">
@@ -146,9 +141,7 @@ export default function Feed() {
             </div>
           </aside>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </AppShell>
   );
 }

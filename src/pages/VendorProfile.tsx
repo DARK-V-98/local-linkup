@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
@@ -53,9 +51,8 @@ export default function VendorProfile() {
   }));
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
         {/* Profile hero */}
         <div className="bg-gradient-hero border-b border-border py-12 md:py-16 relative overflow-hidden">
           <div className="absolute inset-0 grid-overlay opacity-30 pointer-events-none" />
@@ -304,10 +301,8 @@ export default function VendorProfile() {
             </div>
           </div>
         </div>
-      </main>
-      <Footer />
-      <MobileNav />
+      </div>
       <WhatsAppButton />
-    </div>
+    </AppShell>
   );
 }

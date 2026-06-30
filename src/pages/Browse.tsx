@@ -1,9 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { MOCK_CATEGORIES, MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, SL_DISTRICTS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
@@ -85,19 +83,19 @@ export default function Browse() {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="pt-20">
-        {/* Hero search bar */}
-        <section className="bg-gradient-hero border-b border-border py-10 md:py-16 relative overflow-hidden">
-          <div className="absolute inset-0 grid-overlay opacity-30 pointer-events-none" />
-          <div className="container mx-auto relative px-4">
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight">
-              Explore <span className="text-gradient-brand">Services</span>
-            </h1>
-            <p className="mt-2 text-muted-foreground text-sm md:text-base">Find the right professional across Sri Lanka.</p>
+    <AppShell fullBleed>
+      <div className="px-4 md:px-8 pt-6 pb-2 max-w-[1500px]">
+        {/* Heading */}
+        <div className="mb-5">
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+            Explore <span className="text-gradient-brand">Services</span>
+          </h1>
+          <p className="mt-1 text-slate-500 text-sm font-medium">Find the right professional across Sri Lanka.</p>
+        </div>
 
-            <div className="mt-7 flex flex-col sm:flex-row gap-3">
+        {/* Search + filter panel */}
+        <section className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5">
+          <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <i className="fas fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm" />
                 <input
@@ -197,13 +195,12 @@ export default function Browse() {
                 </div>
               </div>
             )}
-          </div>
         </section>
 
-        <section className="container mx-auto py-10 px-4 flex flex-col lg:flex-row gap-10">
+        <section className="mt-6 flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
-          <aside className="w-full lg:w-64 shrink-0 space-y-7">
-            <div>
+          <aside className="w-full lg:w-64 shrink-0 space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Categories</h3>
               <div className="space-y-0.5">
                 <button
@@ -374,10 +371,8 @@ export default function Browse() {
             )}
           </div>
         </section>
-      </main>
-      <Footer />
-      <MobileNav />
+      </div>
       <WhatsAppButton />
-    </div>
+    </AppShell>
   );
 }

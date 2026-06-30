@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import MobileNav from "@/components/layout/MobileNav";
+import AppShell from "@/components/layout/AppShell";
 import { SL_DISTRICTS } from "@/data/mock";
 import { addBooking, generateId } from "@/lib/store";
 import { toast } from "sonner";
@@ -138,9 +136,8 @@ export default function Emergency() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header />
-      <main className="pt-20">
+    <AppShell fullBleed>
+      <div className="pb-10">
         {/* Emergency hero */}
         <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white py-10 relative overflow-hidden">
           <div className="absolute inset-0 dot-pattern-light opacity-20" />
@@ -305,9 +302,7 @@ export default function Emergency() {
             </div>
           </div>
         </div>
-      </main>
-      <Footer />
-      <MobileNav />
-    </div>
+      </div>
+    </AppShell>
   );
 }
