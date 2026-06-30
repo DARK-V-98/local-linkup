@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { getUser, clearUser, AuthUser } from "@/lib/auth";
 import { getLang, setLang, LANG_LABELS, Lang } from "@/lib/lang";
@@ -34,6 +34,24 @@ const ROLE_DASHBOARD: Record<string, string> = {
   admin: "/admin",
 };
 
+const ROLE_QUICK_LINKS: Record<string, NavItem[]> = {
+  buyer: [
+    { to: "/dashboard/buyer", label: "Dashboard", icon: "fa-gauge-high" },
+    { to: "/dashboard/buyer/orders", label: "My Bookings", icon: "fa-bag-shopping" },
+    { to: "/dashboard/buyer/saved", label: "Saved", icon: "fa-heart" },
+  ],
+  seller: [
+    { to: "/dashboard/seller", label: "Dashboard", icon: "fa-gauge-high" },
+    { to: "/dashboard/seller/services", label: "My Services", icon: "fa-briefcase" },
+    { to: "/dashboard/seller/inbox", label: "Inbox", icon: "fa-inbox" },
+  ],
+  admin: [
+    { to: "/admin", label: "Dashboard", icon: "fa-gauge-high" },
+    { to: "/admin/verifications", label: "Verifications", icon: "fa-user-check" },
+    { to: "/admin/users", label: "Users", icon: "fa-users" },
+  ],
+};
+
 const TYPE_ICON: Record<AppNotification["type"], { icon: string; color: string; bg: string }> = {
   booking_new: { icon: "fa-cart-shopping", color: "text-blue-600", bg: "bg-blue-50" },
   booking_confirmed: { icon: "fa-circle-check", color: "text-emerald-600", bg: "bg-emerald-50" },
@@ -41,6 +59,8 @@ const TYPE_ICON: Record<AppNotification["type"], { icon: string; color: string; 
   message: { icon: "fa-envelope", color: "text-sky-600", bg: "bg-sky-50" },
   review: { icon: "fa-star", color: "text-amber-500", bg: "bg-amber-50" },
 };
+
+const SIDEBAR_KEY = "needly_sidebar_collapsed";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -52,7 +72,15 @@ function timeAgo(iso: string) {
 
 /* ── Sidebar nav link ─────────────────────────────────────────────────── */
 
-function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {
+function SidebarLink({
+  item,
+  onNavigate,
+  collapsed,
+}: {
+  item: NavItem;
+  onNavigate: () => void;
+  collapsed?: boolean;
+}) {
   const { pathname } = useLocation();
   const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
   const danger = item.accent === "danger";
@@ -60,7 +88,8 @@ function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate: () => vo
     <Link
       to={item.to}
       onClick={onNavigate}
-      className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-bold transition-all ${
+      title={collapsed ? item.label : undefined}
+      className={`group flex items-center gap-3 ${collapsed ? "justify-center px-0" : "px-4"} py-2.5 rounded-xl text-[15px] font-bold transition-all ${
         isActive
           ? danger
             ? "bg-red-500/15 text-red-400"
@@ -71,7 +100,7 @@ function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate: () => vo
       }`}
     >
       <i className={`fas ${item.icon} w-5 text-center text-[15px]`} />
-      {item.label}
+      {!collapsed && item.label}
     </Link>
   );
 }
@@ -80,21 +109,17 @@ function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate: () => vo
 
 export default function AppShell({
   children,
-  title,
-  subtitle,
-  actions,
-  contentClassName = "",
   fullBleed = false,
+  contentClassName = "",
 }: {
   children: ReactNode;
-  title?: ReactNode;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
-  contentClassName?: string;
   fullBleed?: boolean;
+  contentClassName?: string;
 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(SIDEBAR_KEY) === "1");
   const [user, setUserState] = useState<AuthUser | null>(() => getUser());
   const [lang, setLangState] = useState<Lang>(() => getLang());
   const [showLang, setShowLang] = useState(false);
@@ -109,6 +134,14 @@ export default function AppShell({
 
   const unread = notifs.filter((n) => !n.read).length;
   const closeSidebar = () => setSidebarOpen(false);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
 
   /* keep auth + notifications in sync */
   useEffect(() => {
@@ -164,43 +197,77 @@ export default function AppShell({
 
   const userInitial = user?.name?.charAt(0)?.toUpperCase() ?? "U";
   const dashboardLink = user ? ROLE_DASHBOARD[user.role] ?? "/" : "/login";
+  const quickLinks = user ? ROLE_QUICK_LINKS[user.role] ?? [] : [];
 
-  /* ── Sidebar (shared markup, rendered twice: drawer + desktop) ──────── */
-  const sidebar = (
-    <div className="h-full flex flex-col p-5">
-      <Link to="/" onClick={closeSidebar} className="flex items-center gap-2.5 mb-8 px-1">
+  /* ── Sidebar (rendered twice: mobile drawer = expanded, desktop = collapsible) ── */
+  const renderSidebar = (isCollapsed: boolean) => (
+    <div className={`h-full flex flex-col ${isCollapsed ? "px-2.5 py-5" : "p-5"}`}>
+      <Link
+        to="/"
+        onClick={closeSidebar}
+        className={`flex items-center gap-2.5 mb-8 ${isCollapsed ? "justify-center" : "px-1"}`}
+      >
         <span className="w-9 h-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow shrink-0 text-primary-foreground font-black text-lg">
           N
         </span>
-        <span className="text-xl font-black text-white tracking-tight">Needlyy</span>
+        {!isCollapsed && <span className="text-xl font-black text-white tracking-tight">Needlyy</span>}
       </Link>
 
-      <div className="px-2 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Menu</div>
-      <nav className="space-y-1">
-        {PRIMARY_NAV.map((item) => (
-          <SidebarLink key={item.to} item={item} onNavigate={closeSidebar} />
-        ))}
-      </nav>
+      <div className="flex-1 overflow-y-auto -mr-1 pr-1">
+        {!isCollapsed && <div className="px-2 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Menu</div>}
+        <nav className="space-y-1">
+          {PRIMARY_NAV.map((item) => (
+            <SidebarLink key={item.to} item={item} onNavigate={closeSidebar} collapsed={isCollapsed} />
+          ))}
+        </nav>
 
-      <div className="px-2 mt-6 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Support</div>
-      <nav className="space-y-1">
-        {SECONDARY_NAV.map((item) => (
-          <SidebarLink key={item.to} item={item} onNavigate={closeSidebar} />
-        ))}
-      </nav>
+        {quickLinks.length > 0 && (
+          <>
+            {!isCollapsed && (
+              <div className="px-2 mt-6 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                My Workspace
+              </div>
+            )}
+            {isCollapsed && <div className="my-3 mx-2 h-px bg-white/10" />}
+            <nav className="space-y-1">
+              {quickLinks.map((item) => (
+                <SidebarLink key={item.to} item={item} onNavigate={closeSidebar} collapsed={isCollapsed} />
+              ))}
+            </nav>
+          </>
+        )}
 
-      <div className="mt-auto pt-6">
+        {!isCollapsed && <div className="px-2 mt-6 mb-2 text-[10px] font-black uppercase tracking-widest text-slate-600">Support</div>}
+        {isCollapsed && <div className="my-3 mx-2 h-px bg-white/10" />}
+        <nav className="space-y-1">
+          {SECONDARY_NAV.map((item) => (
+            <SidebarLink key={item.to} item={item} onNavigate={closeSidebar} collapsed={isCollapsed} />
+          ))}
+        </nav>
+      </div>
+
+      <div className="pt-4 mt-2 border-t border-white/10">
         {user ? (
-          <div className="space-y-1">
-            <Link
-              to={dashboardLink}
-              onClick={closeSidebar}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[15px] font-bold text-slate-400 hover:bg-white/5 hover:text-white transition"
-            >
-              <i className="fas fa-gauge-high w-5 text-center" />
-              Dashboard
-            </Link>
-            <div className="bg-white/5 rounded-2xl p-3 flex items-center gap-3 mt-2">
+          isCollapsed ? (
+            <div className="flex flex-col items-center gap-2">
+              <Link
+                to={dashboardLink}
+                onClick={closeSidebar}
+                title={user.name}
+                className="w-10 h-10 rounded-full bg-gradient-brand grid place-items-center text-primary-foreground font-black text-sm"
+              >
+                {userInitial}
+              </Link>
+              <button
+                onClick={handleSignOut}
+                title="Sign out"
+                className="w-9 h-9 rounded-lg grid place-items-center text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition"
+              >
+                <i className="fas fa-right-from-bracket text-sm" />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white/5 rounded-2xl p-3 flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gradient-brand grid place-items-center text-primary-foreground font-black text-sm shrink-0">
                 {userInitial}
               </div>
@@ -216,7 +283,16 @@ export default function AppShell({
                 <i className="fas fa-right-from-bracket text-sm" />
               </button>
             </div>
-          </div>
+          )
+        ) : isCollapsed ? (
+          <Link
+            to="/role-selection"
+            onClick={closeSidebar}
+            title="Join Needlyy"
+            className="w-11 h-11 mx-auto rounded-xl bg-gradient-brand grid place-items-center text-primary-foreground shadow-glow"
+          >
+            <i className="fas fa-arrow-right-to-bracket" />
+          </Link>
         ) : (
           <div className="bg-white/5 rounded-2xl p-4">
             <div className="text-sm font-black text-white mb-1">Join the marketplace</div>
@@ -243,6 +319,8 @@ export default function AppShell({
     </div>
   );
 
+  const year = new Date().getFullYear();
+
   return (
     <div className="min-h-screen bg-slate-100 flex">
       {/* Mobile drawer overlay */}
@@ -256,12 +334,16 @@ export default function AppShell({
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {sidebar}
+        {renderSidebar(false)}
       </aside>
 
       {/* Static sidebar (desktop) */}
-      <aside className="hidden lg:flex lg:flex-col w-64 bg-slate-900 shrink-0 sticky top-0 h-screen">
-        {sidebar}
+      <aside
+        className={`hidden lg:block bg-slate-900 shrink-0 sticky top-0 h-screen transition-[width] duration-300 ${
+          collapsed ? "w-[76px]" : "w-64"
+        }`}
+      >
+        {renderSidebar(collapsed)}
       </aside>
 
       {/* Main column */}
@@ -274,6 +356,16 @@ export default function AppShell({
             aria-label="Open menu"
           >
             <i className="fas fa-bars" />
+          </button>
+
+          {/* Desktop collapse toggle */}
+          <button
+            className="hidden lg:grid w-9 h-9 rounded-lg hover:bg-slate-100 place-items-center text-slate-500 shrink-0 transition"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <i className={`fas ${collapsed ? "fa-angles-right" : "fa-angles-left"} text-sm`} />
           </button>
 
           <form onSubmit={submitSearch} className="flex-1 max-w-md">
@@ -402,7 +494,7 @@ export default function AppShell({
                       <i className="fas fa-gauge-high w-4 text-slate-400" /> Dashboard
                     </Link>
                     <Link
-                      to="/dashboard/buyer/settings"
+                      to={`/dashboard/${user.role === "seller" ? "seller" : "buyer"}/settings`}
                       onClick={() => setShowUserMenu(false)}
                       className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                     >
@@ -437,17 +529,6 @@ export default function AppShell({
           </div>
         </header>
 
-        {/* Optional page header */}
-        {(title || actions) && (
-          <div className="flex items-start justify-between gap-4 px-4 md:px-8 pt-6 md:pt-8">
-            <div>
-              {title && <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">{title}</h1>}
-              {subtitle && <p className="text-sm text-slate-500 mt-1 font-medium">{subtitle}</p>}
-            </div>
-            {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
-          </div>
-        )}
-
         {/* Content */}
         <main
           className={`flex-1 pb-24 lg:pb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 ${
@@ -456,6 +537,22 @@ export default function AppShell({
         >
           {children}
         </main>
+
+        {/* In-app footer (desktop/tablet — mobile uses bottom nav) */}
+        <footer className="hidden md:flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 md:px-8 py-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold">
+            <span className="w-6 h-6 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground font-black text-[11px]">
+              N
+            </span>
+            © {year} Needlyy — Sri Lanka's trusted service marketplace.
+          </div>
+          <nav className="flex items-center gap-5 text-xs font-bold text-slate-500">
+            <Link to="/about" className="hover:text-primary transition">About</Link>
+            <Link to="/contact" className="hover:text-primary transition">Contact</Link>
+            <Link to="/terms" className="hover:text-primary transition">Terms</Link>
+            <Link to="/privacy" className="hover:text-primary transition">Privacy</Link>
+          </nav>
+        </footer>
       </div>
 
       {/* Mobile bottom nav (mobile-first) */}
