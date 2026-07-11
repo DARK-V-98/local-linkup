@@ -39,12 +39,15 @@ export const auth = getAuth(app);
 export const db = isFirebaseConfigured
   ? (() => {
       try {
-        return initializeFirestore(app, {
-          databaseId: "needlyy",
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager(),
-          }),
-        });
+        return initializeFirestore(
+          app,
+          {
+            localCache: persistentLocalCache({
+              tabManager: persistentMultipleTabManager(),
+            }),
+          },
+          "needlyy"
+        );
       } catch {
         // Already initialized (hot-reload)
         return getFirestore(app, "needlyy");

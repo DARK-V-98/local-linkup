@@ -22,6 +22,13 @@ export function useAuth() {
 
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        const current = getUser();
+        if (current?.id.startsWith("UDEMO")) {
+          // Active demo session takes precedence over a lingering Firebase login
+          setLocalUser(current);
+          setLoading(false);
+          return;
+        }
         try {
           const profile = await getUserProfile(firebaseUser.uid);
           if (profile) {
@@ -50,8 +57,14 @@ export function useAuth() {
           setLocalUser(getUser());
         }
       } else {
-        clearUser();
-        setLocalUser(null);
+        const current = getUser();
+        if (current && current.id.startsWith("UDEMO")) {
+          // Demo session — not backed by Firebase Auth; keep it alive
+          setLocalUser(current);
+        } else {
+          clearUser();
+          setLocalUser(null);
+        }
       }
       setLoading(false);
     });

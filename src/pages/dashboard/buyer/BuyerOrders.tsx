@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import ReviewModal from "@/components/ReviewModal";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { subscribeToBookingsByBuyer } from "@/lib/firestore/bookings";
+import { tsToIso } from "@/lib/firestore/normalize";
 import { getUser } from "@/lib/auth";
 
 const buyerSidebarItems = [
@@ -43,7 +44,8 @@ export default function BuyerOrders() {
         // Merge Firestore bookings with localStorage (Firestore takes precedence)
         const local = getBookings();
         const fsIds = new Set(firestoreBookings.map((b) => b.id));
-        const merged = [...firestoreBookings, ...local.filter((b) => !fsIds.has(b.id))];
+        const normalized = firestoreBookings.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }));
+        const merged = [...normalized, ...local.filter((b) => !fsIds.has(b.id))];
         setBookings(merged);
       });
       return unsub;

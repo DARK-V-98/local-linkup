@@ -51,7 +51,9 @@ export function addTransaction(tx: Omit<WalletTransaction, "id" | "createdAt">):
   const all = getTransactions();
   const newTx: WalletTransaction = {
     ...tx,
-    id: "TX-" + Date.now(),
+    // Random suffix: Date.now() alone collides when two transactions are
+    // created in the same millisecond (e.g. top-up + instant cashback)
+    id: "TX-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7),
     createdAt: new Date().toISOString(),
   };
   all.unshift(newTx);

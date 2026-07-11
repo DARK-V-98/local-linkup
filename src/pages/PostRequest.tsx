@@ -47,7 +47,7 @@ export default function PostRequest() {
 
   const [form, setForm] = useState({
     title: "", category: "", description: "", budget: "",
-    budgetMax: "", district: "", urgency: "flexible" as const,
+    budgetMax: "", district: "", urgency: "flexible" as "flexible" | "this_week" | "urgent",
     name: "", phone: "", email: "",
   });
   const [submitting, setSubmitting] = useState(false);

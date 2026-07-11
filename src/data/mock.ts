@@ -7,6 +7,8 @@ export interface MockService {
   description?: string; tags?: string[]; priceUnit?: string;
   sellerVerified?: boolean; sellerMember?: string; sellerJobs?: number;
   sellerBio?: string; sellerPhone?: string;
+  /** Present on services loaded from Firestore; absent on static mock data */
+  sellerId?: string;
 }
 
 export const SL_DISTRICTS = [

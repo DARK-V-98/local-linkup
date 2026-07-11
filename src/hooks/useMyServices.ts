@@ -15,6 +15,7 @@ import {
   type StoredService,
 } from "@/lib/store";
 import { getUser } from "@/lib/auth";
+import { tsToIso } from "@/lib/firestore/normalize";
 
 /**
  * Real-time hook for a seller's own services.
@@ -40,7 +41,7 @@ export function useMyServices() {
     }
 
     const unsub = subscribeToMyServices(user.id, (data) => {
-      setServices(data);
+      setServices(data.map((s) => ({ ...s, createdAt: tsToIso(s.createdAt) })));
       setLoading(false);
     });
     return unsub;

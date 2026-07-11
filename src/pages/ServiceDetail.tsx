@@ -153,7 +153,6 @@ export default function ServiceDetail() {
           ...bookingData,
           buyerId: currentUser.id,
           sellerId: service.sellerId ?? service.id,
-          updatedAt: new Date().toISOString(),
         });
       }
       addNotification({

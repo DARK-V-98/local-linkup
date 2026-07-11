@@ -35,7 +35,8 @@ export default function Login() {
     try {
       const user = await signInWithFirebase(email, password);
       toast.success(`Welcome back, ${user.name.split(" ")[0]}! 👋`);
-      navigate(ROLE_DEST[user.role] ?? redirect);
+      // Return to the page the user was trying to reach, else their dashboard
+      navigate(redirect !== "/" ? redirect : ROLE_DEST[user.role] ?? "/");
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Sign in failed. Please try again.";
@@ -59,7 +60,7 @@ export default function Login() {
     try {
       const user = await signInWithGoogle();
       toast.success(`Welcome, ${user.name.split(" ")[0]}!`);
-      navigate(ROLE_DEST[user.role] ?? "/dashboard/buyer");
+      navigate(redirect !== "/" ? redirect : ROLE_DEST[user.role] ?? "/dashboard/buyer");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Google sign-in failed.";
       if (msg.includes("popup-closed")) {

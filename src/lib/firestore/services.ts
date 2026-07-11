@@ -20,7 +20,7 @@ import type { StoredService } from "@/lib/store";
 
 export const SERVICES_COL = "services";
 
-export interface FirestoreService extends StoredService {
+export interface FirestoreService extends Omit<StoredService, "createdAt"> {
   sellerId: string;
   sellerName: string;
   sellerPhone?: string;
@@ -28,10 +28,13 @@ export interface FirestoreService extends StoredService {
   sellerBio?: string;
   sellerMember?: string;
   sellerJobs?: number;
+  sellerDistrict?: string;
   badge?: string | null;
   badgeIcon?: string | null;
   location?: string;
   imageUrl?: string;
+  reviewCount?: number;
+  /** Firestore Timestamp on reads, ISO string in local fallback */
   createdAt?: unknown;
   updatedAt?: unknown;
 }

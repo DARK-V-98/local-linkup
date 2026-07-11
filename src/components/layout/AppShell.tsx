@@ -368,19 +368,29 @@ export default function AppShell({
             <i className={`fas ${collapsed ? "fa-angles-right" : "fa-angles-left"} text-sm`} />
           </button>
 
-          <form onSubmit={submitSearch} className="flex-1 max-w-md">
-            <div className="flex items-center gap-2 px-4 h-10 bg-slate-100 border border-transparent focus-within:border-primary focus-within:bg-white rounded-full transition">
-              <i className="fas fa-magnifying-glass text-slate-400 text-sm" />
+          <form onSubmit={submitSearch} className="flex-1 max-w-md min-w-0">
+            <div className="flex items-center gap-2 px-4 h-10 bg-slate-100 border border-transparent focus-within:border-primary focus-within:bg-white rounded-full transition min-w-0">
+              <i className="fas fa-magnifying-glass text-slate-400 text-sm shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search services, sellers…"
-                className="bg-transparent border-none text-sm flex-1 outline-none placeholder:text-slate-400"
+                className="bg-transparent border-none text-sm flex-1 min-w-0 w-full outline-none placeholder:text-slate-400"
               />
             </div>
           </form>
 
           <div className="flex items-center gap-2 ml-auto">
+            {/* Become a Seller (hidden for sellers/admins) */}
+            {(!user || user.role === "buyer") && (
+              <Link
+                to="/register/seller"
+                className="hidden lg:grid h-10 px-4 place-items-center rounded-full border border-primary/40 text-primary text-sm font-bold hover:bg-primary hover:text-primary-foreground transition"
+              >
+                Become a Seller
+              </Link>
+            )}
+
             {/* Language */}
             <div className="relative hidden sm:block" ref={langRef}>
               <button

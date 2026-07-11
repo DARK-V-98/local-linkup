@@ -149,3 +149,21 @@
 
 @keyframes accordion-down { from { height: 0; } to { height: var(--radix-accordion-content-height); } }
 @keyframes accordion-up { from { height: var(--radix-accordion-content-height); } to { height: 0; } }
+
+/* Thin horizontal scrollbars for card rails (hidden on touch, subtle on desktop) */
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(220 13% 85%) transparent; }
+.scrollbar-thin::-webkit-scrollbar { height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(220 13% 85%); border-radius: 999px; }
+@media (pointer: coarse) {
+  .scrollbar-thin { scrollbar-width: none; }
+  .scrollbar-thin::-webkit-scrollbar { display: none; }
+}
+
+/* Hard guard against page-level horizontal overflow on small screens.
+   `clip` (not `hidden`) avoids creating a scroll container, so sticky
+   headers keep working. Inner card rails scroll in their own containers. */
+html, body {
+  overflow-x: clip;
+  max-width: 100vw;
+}

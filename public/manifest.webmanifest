@@ -1,0 +1,25 @@
+{
+  "name": "Needlyy — Sri Lanka's Trusted Service Marketplace",
+  "short_name": "Needlyy",
+  "description": "Find and book verified local professionals across Sri Lanka — tech, home repairs, tuition, wellness and more.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#16a34a",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

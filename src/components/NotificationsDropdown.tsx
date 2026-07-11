@@ -104,7 +104,7 @@ export default function NotificationsDropdown() {
               </div>
             ) : notifs.map((n) => {
               const meta = NOTIF_ICONS[n.type];
-              const Wrapper = n.link ? Link : "div";
+              const Wrapper = (n.link ? Link : "div") as React.ElementType;
               return (
                 <Wrapper
                   key={n.id}

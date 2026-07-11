@@ -6,6 +6,7 @@ import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
 import { addNotification } from "@/components/NotificationsDropdown";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import { tsToIso } from "@/lib/firestore/normalize";
 import { subscribeToBookingsBySeller } from "@/lib/firestore/bookings";
 import { getUser } from "@/lib/auth";
 
@@ -64,7 +65,8 @@ export default function SellerOrders() {
       const unsub = subscribeToBookingsBySeller(user.id, (firestoreOrders) => {
         const local = getBookings();
         const fsIds = new Set(firestoreOrders.map((b) => b.id));
-        const merged = [...firestoreOrders, ...local.filter((b) => !fsIds.has(b.id))];
+        const normalized = firestoreOrders.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }));
+        const merged = [...normalized, ...local.filter((b) => !fsIds.has(b.id))];
         setOrders(merged);
       });
       return unsub;
