@@ -34,7 +34,7 @@ service cloud.firestore {
     // True when a write leaves the privilege fields untouched. Without this,
     // any signed-in user could promote themselves by writing role:'admin'
     // to their own profile.
-    function keepsPrivileges(uid) {
+    function keepsPrivileges() {
       return !request.resource.data.diff(resource.data).affectedKeys()
                 .hasAny(['role', 'verified'])
              || isDeveloper()
@@ -55,7 +55,7 @@ service cloud.firestore {
       // Users edit their own profile but cannot change role or verified status;
       // admins and the developer can.
       allow update: if isAuth()
-                    && ((isSelf(uid) && keepsPrivileges(uid)) || isAdmin());
+                    && ((isSelf(uid) && keepsPrivileges()) || isAdmin());
       allow delete: if isAdmin();
 
       // Saved services subcollection
