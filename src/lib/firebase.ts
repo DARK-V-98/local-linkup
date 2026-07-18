@@ -36,23 +36,32 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // ─── Firestore (with offline persistence) ─────────────────────────────────────
-// Uses the project's default database. A named database ("needlyy") was
-// configured previously but never created, so every query failed with
-// NOT_FOUND and the app silently fell back to local mock data.
+/**
+ * The project uses a NAMED database, "needlyy" — not the default one.
+ * Both must line up with VITE_FIREBASE_PROJECT_ID: the name only exists inside
+ * that project. Pointing at a database that does not exist fails every query
+ * with NOT_FOUND, which looks exactly like an empty site.
+ */
+export const FIRESTORE_DATABASE_ID = "needlyy";
+
 export const db = isFirebaseConfigured
   ? (() => {
       try {
-        return initializeFirestore(app, {
-          localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager(),
-          }),
-        });
+        return initializeFirestore(
+          app,
+          {
+            localCache: persistentLocalCache({
+              tabManager: persistentMultipleTabManager(),
+            }),
+          },
+          FIRESTORE_DATABASE_ID
+        );
       } catch {
         // Already initialized (hot-reload)
-        return getFirestore(app);
+        return getFirestore(app, FIRESTORE_DATABASE_ID);
       }
     })()
-  : getFirestore(app);
+  : getFirestore(app, FIRESTORE_DATABASE_ID);
 
 // ─── Storage ───────────────────────────────────────────────────────────────────
 export const storage = getStorage(app);
