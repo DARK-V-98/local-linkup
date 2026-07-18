@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { getUser, setUser } from "@/lib/auth";
-import { SL_DISTRICTS } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
 import { toast } from "sonner";
 import { isFirebaseConfigured, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -45,7 +45,7 @@ export default function BuyerSettings() {
     if (file.size > 2 * 1024 * 1024) { toast.error("Image must be under 2MB."); return; }
     setUploading(true);
     try {
-      if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+      if (isFirebaseConfigured && user) {
         const storageRef = ref(storage, `avatars/${user.id}`);
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
@@ -78,7 +78,7 @@ export default function BuyerSettings() {
           bio: profile.bio,
         };
         setUser({ ...user, ...updates });
-        if (isFirebaseConfigured && !user.id.startsWith("UDEMO")) {
+        if (isFirebaseConfigured) {
           await updateUserProfile(user.id, updates);
         }
         window.dispatchEvent(new Event("needly-auth-change"));

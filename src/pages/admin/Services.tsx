@@ -1,7 +1,10 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToAllServices, updateFirestoreService, type FirestoreService } from "@/lib/firestore/services";
+import { tsToIso } from "@/lib/firestore/normalize";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -35,16 +38,25 @@ interface CatalogService {
   createdAt: string;
 }
 
-const SERVICES: CatalogService[] = [
-  { id: "S001", title: "Full House Plumbing Maintenance", category: "Plumbing", categoryIcon: "fa-wrench", seller: "Tharindu P.", district: "Colombo", price: 3500, priceUnit: "per visit", status: "active", rating: 4.9, orders: 87, views: 2340, flags: 0, createdAt: "2023-06-12" },
-  { id: "S002", title: "Modern Logo Design Package", category: "Graphic Design", categoryIcon: "fa-palette", seller: "Hashini W.", district: "Colombo", price: 8500, priceUnit: "per project", status: "active", rating: 5.0, orders: 42, views: 1890, flags: 0, createdAt: "2023-08-20" },
-  { id: "S003", title: "Home Deep Cleaning Service", category: "Cleaning", categoryIcon: "fa-broom", seller: "Eco Cleaners", district: "Negombo", price: 6500, priceUnit: "per session", status: "flagged", rating: 3.2, orders: 4, views: 340, flags: 3, createdAt: "2024-02-14" },
-  { id: "S004", title: "AC Installation & Service", category: "Electrical", categoryIcon: "fa-bolt", seller: "Sky Electricals", district: "Kandy", price: 4500, priceUnit: "per unit", status: "active", rating: 4.7, orders: 56, views: 2100, flags: 0, createdAt: "2023-11-01" },
-  { id: "S005", title: "React & Next.js Website Development", category: "Technology", categoryIcon: "fa-laptop-code", seller: "Sumudu W.", district: "Colombo", price: 35000, priceUnit: "per project", status: "active", rating: 4.8, orders: 22, views: 3400, flags: 0, createdAt: "2024-01-15" },
-  { id: "S006", title: "Cheap iPhone Screen Repair", category: "Technology", categoryIcon: "fa-mobile-screen", seller: "QuickFix Pro", district: "Gampaha", price: 2000, priceUnit: "per repair", status: "removed", rating: 2.1, orders: 0, views: 120, flags: 5, createdAt: "2024-10-01" },
-  { id: "S007", title: "Wedding Photography Package", category: "Photography", categoryIcon: "fa-camera", seller: "Sumudu W.", district: "Colombo", price: 45000, priceUnit: "per event", status: "active", rating: 5.0, orders: 18, views: 4200, flags: 0, createdAt: "2023-07-05" },
-  { id: "S008", title: "A/L Combined Maths Tuition", category: "Tuition", categoryIcon: "fa-book", seller: "Kasun J.", district: "Galle", price: 2500, priceUnit: "per hour", status: "paused", rating: 4.6, orders: 31, views: 980, flags: 0, createdAt: "2023-09-22" },
-];
+function toCatalogService(f: FirestoreService): CatalogService {
+  return {
+    id: f.id,
+    title: f.title,
+    category: f.category,
+    categoryIcon: (f.categoryIcon ?? "fa-tag").replace(/^fas\s+/, ""),
+    seller: f.sellerName ?? "Unknown",
+    district: f.district ?? "—",
+    price: f.price ?? 0,
+    priceUnit: f.priceUnit ? `per ${f.priceUnit}` : "",
+    status: (f.status as ServiceStatus) ?? "active",
+    rating: f.rating ?? 0,
+    orders: f.orders ?? 0,
+    views: f.views ?? 0,
+    flags: 0,
+    createdAt: tsToIso(f.createdAt).slice(0, 10),
+  };
+}
+
 
 const STATUS_STYLE: Record<ServiceStatus, string> = {
   active: "bg-emerald-50 text-emerald-600 border-emerald-200",
@@ -54,7 +66,8 @@ const STATUS_STYLE: Record<ServiceStatus, string> = {
 };
 
 export default function AdminServices() {
-  const [services, setServices] = useState<CatalogService[]>(SERVICES);
+  const [services, setServices] = useState<CatalogService[]>([]);
+  const [loading, setLoading] = useState(isFirebaseConfigured);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ServiceStatus | "all">("all");
   const [sortBy, setSortBy] = useState<"orders" | "rating" | "flags" | "views">("orders");
@@ -75,9 +88,32 @@ export default function AdminServices() {
     removed: services.filter((s) => s.status === "removed").length,
   };
 
-  const updateStatus = (id: string, status: ServiceStatus) => {
-    setServices((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
-    toast.success(`Service ${status}.`);
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsub = subscribeToAllServices(
+      (docs) => {
+        setServices(docs.map(toCatalogService));
+        setLoading(false);
+      },
+      () => {
+        toast.error("Could not load the service catalog.");
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, []);
+
+  const updateStatus = async (id: string, status: ServiceStatus) => {
+    try {
+      // The listing schema stores active/paused/draft. Moderation states map
+      // onto those: flagged listings are paused, removed ones unpublished to
+      // draft — either way they drop out of the public status=="active" query.
+      const stored = status === "flagged" ? "paused" : status === "removed" ? "draft" : status;
+      await updateFirestoreService(id, { status: stored });
+      toast.success(`Service ${status}.`);
+    } catch {
+      toast.error("Could not update this listing.");
+    }
   };
 
   return (

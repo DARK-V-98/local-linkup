@@ -6,7 +6,8 @@ import {
 } from "recharts";
 import { formatPrice } from "@/lib/format";
 import { toast } from "sonner";
-import { getBookings, StoredBooking } from "@/lib/store";
+import { type StoredBooking } from "@/lib/store";
+import { useBookings } from "@/hooks/useBookings";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 // Payout history — localStorage persisted
@@ -94,7 +95,7 @@ export default function SellerEarnings() {
   const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [requestingPayout, setRequestingPayout] = useState(false);
-  const [bookings, setBookings] = useState<StoredBooking[]>([]);
+  const { bookings } = useBookings() as { bookings: StoredBooking[] };
   const [payouts, setPayouts] = useState<PayoutRecord[]>(getPayouts());
   const [payoutForm, setPayoutForm] = useState({
     bank: "",
@@ -104,7 +105,6 @@ export default function SellerEarnings() {
     amount: "",
   });
 
-  useEffect(() => { setBookings(getBookings()); }, []);
 
   const monthly = useMemo(() => buildMonthly(bookings), [bookings]);
   const weekly = useMemo(() => buildWeekly(bookings), [bookings]);

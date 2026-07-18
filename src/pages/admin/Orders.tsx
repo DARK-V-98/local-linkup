@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, updateBookingStatus, StoredBooking } from "@/lib/store";
+import { updateBookingStatus, StoredBooking } from "@/lib/store";
+import { useAllBookings } from "@/hooks/useAllBookings";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { updateFirestoreBookingStatus } from "@/lib/firestore/bookings";
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
@@ -46,13 +49,12 @@ function exportCSV(orders: StoredBooking[]) {
 
 export default function AdminOrders() {
   usePageTitle("Orders — Admin");
-  const [orders, setOrders] = useState<StoredBooking[]>([]);
+  const { bookings: orders, loading } = useAllBookings();
   const [tab, setTab] = useState<TabKey>("all");
   const [search, setSearch] = useState("");
   const [districtFilter, setDistrictFilter] = useState("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => { setOrders(getBookings()); }, []);
 
   const stats = useMemo(() => ({
     total: orders.length,
@@ -79,10 +81,18 @@ export default function AdminOrders() {
     })
   , [orders, tab, search, districtFilter]);
 
-  const changeStatus = (id: string, status: StoredBooking["status"]) => {
-    updateBookingStatus(id, status);
-    setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
-    toast.success("Status updated.");
+  const changeStatus = async (id: string, status: StoredBooking["status"]) => {
+    try {
+      if (isFirebaseConfigured) {
+        // The snapshot listener refreshes the row once the write lands.
+        await updateFirestoreBookingStatus(id, status);
+      } else {
+        updateBookingStatus(id, status);
+      }
+      toast.success("Status updated.");
+    } catch {
+      toast.error("Could not update this order.");
+    }
   };
 
   return (

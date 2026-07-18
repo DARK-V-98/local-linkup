@@ -1,8 +1,21 @@
-import { MOCK_LATEST_SERVICES } from "@/data/mock";
+import { useMemo } from "react";
 import { SERVICE_GRADIENTS, formatPrice, timeAgo } from "@/lib/format";
 import { Link } from "react-router-dom";
+import { useServices } from "@/hooks/useServices";
 
 export default function LatestServices() {
+  const { services, loading } = useServices();
+
+  const latest = useMemo(
+    () =>
+      [...services]
+        .sort((a, b) => b.postedAt.getTime() - a.postedAt.getTime())
+        .slice(0, 8),
+    [services]
+  );
+
+  if (!loading && latest.length === 0) return null;
+
   return (
     <section className="container mx-auto py-12 md:py-20">
       <div className="flex items-end justify-between mb-8 sm:mb-10 flex-wrap gap-4">
@@ -16,7 +29,11 @@ export default function LatestServices() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        {MOCK_LATEST_SERVICES.map((s, i) => {
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-64 rounded-3xl bg-foreground/5 animate-pulse" />
+            ))
+          : latest.map((s, i) => {
           const g = SERVICE_GRADIENTS[i % SERVICE_GRADIENTS.length];
           return (
             <Link key={s.id} to={`/service/${s.id}`} className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all text-left">
@@ -31,7 +48,9 @@ export default function LatestServices() {
                 <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground font-semibold">
                   <span className="grid place-items-center w-6 h-6 rounded-full bg-gradient-brand text-primary-foreground text-[10px] font-black">{s.sellerInitial}</span>
                   {s.seller}
-                  <span className="ml-auto inline-flex items-center gap-1"><i className="fas fa-star text-amber-500 text-[10px]" /> {s.rating}</span>
+                  {s.reviews > 0 && (
+                    <span className="ml-auto inline-flex items-center gap-1"><i className="fas fa-star text-amber-500 text-[10px]" /> {s.rating.toFixed(1)}</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-2 text-[11px] text-muted-foreground font-semibold">
                   <i className="fas fa-location-dot" /> {s.location} · {timeAgo(s.postedAt)}

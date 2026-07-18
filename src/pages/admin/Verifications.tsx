@@ -1,6 +1,8 @@
-﻿import { useState } from "react";
+﻿import { useState, useMemo } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
+import { useAllUsers } from "@/hooks/useAllUsers";
+import { setUserVerified, setUserStatus, type UserProfile } from "@/lib/firestore/users";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -31,15 +33,29 @@ interface Application {
   notes: string;
 }
 
-const INITIAL_APPS: Application[] = [
-  { id: "V001", name: "Tharindu Perera", type: "Individual", category: "Plumbing", city: "Colombo", submittedAt: "2 mins ago", idType: "NIC", nic: "199512345678", status: "pending", docs: ["ID Front", "ID Back", "Selfie"], notes: "" },
-  { id: "V002", name: "Lanka Homes (Pvt) Ltd", type: "Business", category: "Home Services", city: "Kandy", submittedAt: "15 mins ago", idType: "Business Reg.", nic: "PV12345", status: "pending", docs: ["BRN Certificate", "Owner NIC", "Tax Certificate"], notes: "" },
-  { id: "V003", name: "Kasun Jayasuriya", type: "Individual", category: "Electrical", city: "Galle", submittedAt: "1 hour ago", idType: "Passport", nic: "N1234567", status: "pending", docs: ["Passport", "Selfie"], notes: "" },
-  { id: "V004", name: "Eco Cleaners", type: "Business", category: "Cleaning", city: "Negombo", submittedAt: "3 hours ago", idType: "Business Reg.", nic: "PV98765", status: "pending", docs: ["BRN Certificate", "Owner NIC"], notes: "" },
-  { id: "V005", name: "Sumudu Silva", type: "Individual", category: "Photography", city: "Colombo", submittedAt: "5 hours ago", idType: "NIC", nic: "200112345678", status: "pending", docs: ["ID Front", "ID Back", "Selfie"], notes: "" },
-  { id: "V006", name: "Malith Fernando", type: "Individual", category: "Technology", city: "Colombo", submittedAt: "Yesterday", idType: "NIC", nic: "199888761234", status: "approved", docs: ["ID Front", "ID Back", "Selfie"], notes: "Documents verified. Good quality photos." },
-  { id: "V007", name: "Royal Electricals", type: "Business", category: "Electrical", city: "Matara", submittedAt: "Yesterday", idType: "Business Reg.", nic: "PV55321", status: "rejected", docs: ["BRN Certificate", "Owner NIC"], notes: "BRN certificate expired. Please resubmit with updated documents." },
-];
+/**
+ * Sellers become verification applications: unverified sellers are pending,
+ * verified ones approved, suspended ones rejected. There is no separate
+ * application record — verification is a flag on the seller's profile.
+ */
+function toApplication(u: UserProfile): Application {
+  const status: Status =
+    u.status === "suspended" ? "rejected" : u.verified ? "approved" : "pending";
+  return {
+    id: u.id,
+    name: u.businessName || u.name,
+    type: u.sellerType === "business" ? "Business" : "Individual",
+    category: u.sellerCategory ?? "—",
+    city: u.district ?? "—",
+    submittedAt: u.joinedAt ?? "",
+    idType: u.sellerType === "business" ? "Business Reg." : "NIC",
+    nic: u.phone ?? "—",
+    status,
+    docs: [],
+    notes: "",
+  };
+}
+
 
 const STATUS_STYLE: Record<Status, string> = {
   pending: "bg-amber-50 text-amber-600 border-amber-200",
@@ -48,7 +64,11 @@ const STATUS_STYLE: Record<Status, string> = {
 };
 
 export default function Verifications() {
-  const [apps, setApps] = useState<Application[]>(INITIAL_APPS);
+  const { users, loading } = useAllUsers();
+  const apps = useMemo(
+    () => users.filter((u) => u.role === "seller").map(toApplication),
+    [users]
+  );
   const [filter, setFilter] = useState<Status | "all">("pending");
   const [selected, setSelected] = useState<Application | null>(null);
   const [noteInput, setNoteInput] = useState("");
@@ -62,11 +82,23 @@ export default function Verifications() {
 
   const filtered = filter === "all" ? apps : apps.filter((a) => a.status === filter);
 
-  const updateStatus = (id: string, status: Status) => {
-    setApps((prev) => prev.map((a) => a.id === id ? { ...a, status, notes: noteInput || a.notes } : a));
-    if (selected?.id === id) setSelected((prev) => prev ? { ...prev, status, notes: noteInput || prev.notes } : null);
-    toast.success(status === "approved" ? "Seller approved and notified." : "Application rejected. Seller notified.");
-    setNoteInput("");
+  const updateStatus = async (id: string, status: Status) => {
+    try {
+      if (status === "approved") {
+        await setUserVerified(id, true);
+        await setUserStatus(id, "active");
+      } else {
+        await setUserVerified(id, false);
+        await setUserStatus(id, "suspended");
+      }
+      if (selected?.id === id) {
+        setSelected({ ...selected, status, notes: noteInput || selected.notes });
+      }
+      toast.success(status === "approved" ? "Seller approved." : "Application rejected.");
+      setNoteInput("");
+    } catch {
+      toast.error("Could not update this application.");
+    }
   };
 
   return (

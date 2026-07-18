@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { usePageTitle } from "@/lib/usePageTitle";
-import { MOCK_CATEGORIES, MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, SL_DISTRICTS } from "@/data/mock";
-import { formatPrice, SERVICE_GRADIENTS } from "@/lib/format";
+import { SL_DISTRICTS, type ServiceListing } from "@/data/catalog";
+import { useCategories } from "@/hooks/useCategories";
+import { useServices } from "@/hooks/useServices";
+import { usePlatformStats, useTopReviews } from "@/hooks/usePlatformStats";
+import { formatPrice, timeAgo, SERVICE_GRADIENTS } from "@/lib/format";
 import { getSaved, toggleSaved } from "@/lib/saved";
 import { getUser } from "@/lib/auth";
 
@@ -14,13 +17,6 @@ const HERO_FEATURES = ["Verified Professionals", "Secure Payments", "Money Back 
 
 const POPULAR_TAGS = ["Web Development", "Photography", "Cleaning", "Electrician", "Home Tutor", "AI Development"];
 
-const STATS = [
-  { icon: "fa-users", value: "25,000+", label: "Happy Customers", tint: "bg-emerald-500/10 text-emerald-600" },
-  { icon: "fa-shield-halved", value: "5,200+", label: "Verified Professionals", tint: "bg-blue-500/10 text-blue-600" },
-  { icon: "fa-camera", value: "48,000+", label: "Completed Jobs", tint: "bg-violet-500/10 text-violet-600" },
-  { icon: "fa-circle-check", value: "99%", label: "Satisfaction Rate", tint: "bg-amber-500/10 text-amber-600" },
-  { icon: "fa-headset", value: "24/7", label: "Support Available", tint: "bg-rose-500/10 text-rose-600" },
-];
 
 const CATEGORY_TINTS = [
   "bg-blue-50 text-blue-600",
@@ -35,20 +31,6 @@ const CATEGORY_TINTS = [
   "bg-cyan-50 text-cyan-600",
 ];
 
-/** Trending picks mapped to real mock services so links resolve. */
-const TRENDING_IDS = ["t1", "l2", "t4", "t2", "l9", "t3"];
-const ALL_MOCK_SERVICES = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
-const TRENDING = TRENDING_IDS
-  .map((id) => ALL_MOCK_SERVICES.find((s) => s.id === id))
-  .filter((s): s is NonNullable<typeof s> => Boolean(s));
-
-const PROFESSIONALS = [
-  { name: "Nimal Perera", job: "Web Developer", rating: 4.9, reviews: 240, district: "Colombo", status: "Online", initial: "N" },
-  { name: "Kavindu Dilshan", job: "Electrician", rating: 4.8, reviews: 180, district: "Kandy", status: "Busy", initial: "K" },
-  { name: "Dilini Fernando", job: "Photographer", rating: 4.9, reviews: 320, district: "Galle", status: "Online", initial: "D" },
-  { name: "Saman Kumara", job: "AC Technician", rating: 4.7, reviews: 150, district: "Negombo", status: "Online", initial: "S" },
-];
-
 const HOW_IT_WORKS = [
   { icon: "fa-magnifying-glass", title: "Search", body: "Tell us what you need" },
   { icon: "fa-users-viewfinder", title: "Compare", body: "Browse verified pros" },
@@ -58,27 +40,14 @@ const HOW_IT_WORKS = [
   { icon: "fa-star", title: "Review", body: "Rate your experience" },
 ];
 
-const RECENT_JOBS = [
-  { icon: "fa-palette", title: "Logo Design", ago: "10 min ago", price: 4500, tint: "bg-emerald-50 text-emerald-600" },
-  { icon: "fa-snowflake", title: "AC Repair", ago: "1 hour ago", price: 6000, tint: "bg-blue-50 text-blue-600" },
-  { icon: "fa-laptop-code", title: "Website Design", ago: "2 hours ago", price: 18000, tint: "bg-violet-50 text-violet-600" },
-  { icon: "fa-broom", title: "Home Cleaning", ago: "3 hours ago", price: 3000, tint: "bg-amber-50 text-amber-600" },
+const JOB_TINTS = [
+  "bg-emerald-50 text-emerald-600",
+  "bg-blue-50 text-blue-600",
+  "bg-violet-50 text-violet-600",
+  "bg-amber-50 text-amber-600",
 ];
 
-const PLATFORM_STATS = [
-  { icon: "fa-user-tie", value: "5,200+", label: "Professionals", tint: "bg-blue-50 text-blue-600" },
-  { icon: "fa-briefcase", value: "48,000+", label: "Completed Jobs", tint: "bg-emerald-50 text-emerald-600" },
-  { icon: "fa-table-cells-large", value: "100+", label: "Categories", tint: "bg-amber-50 text-amber-600" },
-  { icon: "fa-location-dot", value: "25", label: "Districts", tint: "bg-violet-50 text-violet-600" },
-  { icon: "fa-star", value: "99%", label: "Satisfaction", tint: "bg-sky-50 text-sky-600" },
-  { icon: "fa-headset", value: "24/7", label: "Support", tint: "bg-rose-50 text-rose-500" },
-];
 
-const TESTIMONIALS = [
-  { text: "Excellent service! Found a great photographer for our wedding within hours. The whole process was so smooth.", author: "Asanka D.", place: "Colombo", initial: "A" },
-  { text: "My son went from a C to an A in Combined Maths. The tutors here are genuinely verified and skilled.", author: "Anura T.", place: "Galle", initial: "T" },
-  { text: "Booked a deep cleaning service and the team was spotless — literally. Booked monthly now!", author: "Geetha P.", place: "Kandy", initial: "G" },
-];
 
 /* ── Section heading ──────────────────────────────────────────────────── */
 
@@ -106,7 +75,7 @@ function TrendingCard({
   saved,
   onSave,
 }: {
-  s: (typeof ALL_MOCK_SERVICES)[number];
+  s: ServiceListing;
   index: number;
   saved: boolean;
   onSave: (id: string, e: React.MouseEvent) => void;
@@ -197,27 +166,29 @@ function JoinSellerCard() {
   );
 }
 
-function RecentJobsCard() {
+function RecentJobsCard({ jobs }: { jobs: ServiceListing[] }) {
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-black text-slate-900 text-sm">Recent Completed Jobs</h3>
+        <h3 className="font-black text-slate-900 text-sm">Latest Listings</h3>
         <Link to="/browse" className="text-[11px] font-bold text-primary hover:underline">
           View all <i className="fas fa-arrow-right text-[9px]" />
         </Link>
       </div>
       <div className="space-y-3">
-        {RECENT_JOBS.map((j) => (
-          <div key={j.title} className="flex items-center gap-3">
-            <span className={`w-9 h-9 rounded-xl grid place-items-center text-sm shrink-0 ${j.tint}`}>
-              <i className={`fas ${j.icon}`} />
+        {jobs.length === 0 && (
+          <p className="text-[11px] text-slate-400 font-semibold py-2">No listings published yet.</p>
+        )}
+        {jobs.map((j, i) => (
+          <div key={j.id} className="flex items-center gap-3">
+            <span className={`w-9 h-9 rounded-xl grid place-items-center text-sm shrink-0 ${JOB_TINTS[i % JOB_TINTS.length]}`}>
+              <i className={`fas ${j.categoryIcon}`} />
             </span>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-black text-slate-900 truncate">{j.title}</div>
-              <div className="text-[10px] text-slate-400 font-semibold">Completed {j.ago}</div>
+              <div className="text-[10px] text-slate-400 font-semibold">Listed {timeAgo(j.postedAt)}</div>
             </div>
             <div className="text-xs font-black text-slate-700 shrink-0">{formatPrice(j.price)}</div>
-            <i className="fas fa-circle-check text-emerald-500 text-sm shrink-0" />
           </div>
         ))}
       </div>
@@ -248,17 +219,30 @@ function PostJobCard() {
 }
 
 function PlatformStatsCard() {
+  const { loading, sellerCount, serviceCount, categoryCount, districtCount, averageRating, reviewCount } = usePlatformStats();
+
+  const items = [
+    { icon: "fa-user-tie", value: sellerCount.toLocaleString(), label: "Professionals", tint: "bg-blue-50 text-blue-600" },
+    { icon: "fa-briefcase", value: serviceCount.toLocaleString(), label: "Services Listed", tint: "bg-emerald-50 text-emerald-600" },
+    { icon: "fa-table-cells-large", value: categoryCount.toLocaleString(), label: "Categories", tint: "bg-amber-50 text-amber-600" },
+    { icon: "fa-location-dot", value: districtCount.toLocaleString(), label: "Districts", tint: "bg-violet-50 text-violet-600" },
+    reviewCount > 0
+      ? { icon: "fa-star", value: averageRating.toFixed(1), label: "Avg Rating", tint: "bg-sky-50 text-sky-600" }
+      : { icon: "fa-star", value: "—", label: "Avg Rating", tint: "bg-sky-50 text-sky-600" },
+    { icon: "fa-headset", value: "24/7", label: "Support", tint: "bg-rose-50 text-rose-500" },
+  ];
+
   return (
     <div className="bg-white rounded-3xl border border-slate-200 p-5">
       <h3 className="font-black text-slate-900 text-sm mb-4">Platform Statistics</h3>
       <div className="grid grid-cols-2 gap-3">
-        {PLATFORM_STATS.map((s) => (
+        {items.map((s) => (
           <div key={s.label} className="flex items-center gap-2.5">
             <span className={`w-8 h-8 rounded-lg grid place-items-center text-xs shrink-0 ${s.tint}`}>
               <i className={`fas ${s.icon}`} />
             </span>
             <div className="min-w-0">
-              <div className="text-xs font-black text-slate-900 leading-none">{s.value}</div>
+              <div className="text-xs font-black text-slate-900 leading-none">{loading ? "—" : s.value}</div>
               <div className="text-[9px] text-slate-400 font-bold mt-0.5 truncate">{s.label}</div>
             </div>
           </div>
@@ -293,7 +277,48 @@ function SecurePaymentsCard() {
 export default function Index() {
   usePageTitle("Sri Lanka's Trusted Local Service Marketplace");
   const navigate = useNavigate();
+  const { categories } = useCategories({ withCounts: true });
+  const { services, loading: servicesLoading } = useServices();
+  const stats = usePlatformStats();
+  const { reviews: testimonials } = useTopReviews(3);
+
+  // Headline counts, all derived from real listings — see usePlatformStats.
+  const headlineStats = [
+    { icon: "fa-user-tie", value: stats.sellerCount.toLocaleString(), label: "Verified Professionals", tint: "bg-blue-500/10 text-blue-600" },
+    { icon: "fa-briefcase", value: stats.serviceCount.toLocaleString(), label: "Services Listed", tint: "bg-emerald-500/10 text-emerald-600" },
+    { icon: "fa-table-cells-large", value: stats.categoryCount.toLocaleString(), label: "Categories", tint: "bg-violet-500/10 text-violet-600" },
+    { icon: "fa-location-dot", value: stats.districtCount.toLocaleString(), label: "Districts Covered", tint: "bg-amber-500/10 text-amber-600" },
+    { icon: "fa-headset", value: "24/7", label: "Support Available", tint: "bg-rose-500/10 text-rose-600" },
+  ];
   const user = getUser();
+
+  // Most-reviewed listings stand in for "trending" until view tracking lands.
+  const trending = useMemo(
+    () => [...services].sort((a, b) => b.reviews - a.reviews || b.rating - a.rating).slice(0, 6),
+    [services]
+  );
+
+  // Newest listings, shown as the live activity ticker.
+  const recentJobs = useMemo(
+    () =>
+      [...services]
+        .sort((a, b) => b.postedAt.getTime() - a.postedAt.getTime())
+        .slice(0, 4),
+    [services]
+  );
+
+  // One card per seller, ranked by how well reviewed their listings are.
+  const professionals = useMemo(() => {
+    const bySeller = new Map<string, (typeof services)[number]>();
+    for (const s of services) {
+      const key = s.sellerId ?? s.seller;
+      const existing = bySeller.get(key);
+      if (!existing || s.reviews > existing.reviews) bySeller.set(key, s);
+    }
+    return [...bySeller.values()]
+      .sort((a, b) => b.reviews - a.reviews || b.rating - a.rating)
+      .slice(0, 4);
+  }, [services]);
   const [query, setQuery] = useState("");
   const [district, setDistrict] = useState("All Districts");
   const [savedSet, setSavedSet] = useState<Set<string>>(() => new Set(getSaved()));
@@ -405,13 +430,13 @@ export default function Index() {
 
           {/* Stats strip */}
           <section className="bg-white rounded-3xl border border-slate-200 px-5 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-5">
-            {STATS.map((st) => (
+            {headlineStats.map((st) => (
               <div key={st.label} className="flex items-center gap-3">
                 <span className={`w-10 h-10 rounded-xl grid place-items-center text-base shrink-0 ${st.tint}`}>
                   <i className={`fas ${st.icon}`} />
                 </span>
                 <div className="min-w-0">
-                  <div className="text-base sm:text-lg font-black text-slate-900 leading-none">{st.value}</div>
+                  <div className="text-base sm:text-lg font-black text-slate-900 leading-none">{stats.loading ? "—" : st.value}</div>
                   <div className="text-[10px] font-bold text-slate-400 mt-1 truncate">{st.label}</div>
                 </div>
               </div>
@@ -422,19 +447,19 @@ export default function Index() {
           <section>
             <SectionHead title="Browse by Category" to="/browse" cta="View all categories" />
             <div className="flex gap-3 overflow-x-auto snap-x pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-thin">
-              {MOCK_CATEGORIES.map((c, i) => (
+              {categories.map((c, i) => (
                 <Link
                   key={c.id}
                   to={`/browse?category=${encodeURIComponent(c.name)}`}
                   className="group snap-start shrink-0 w-[104px] bg-white rounded-2xl border border-slate-200 p-3 text-center hover:shadow-soft hover:-translate-y-0.5 transition-all"
                 >
                   <div className={`w-12 h-12 mx-auto rounded-2xl grid place-items-center text-lg mb-2 ${CATEGORY_TINTS[i % CATEGORY_TINTS.length]}`}>
-                    <i className={c.icon} />
+                    <i className={`fas ${c.icon}`} />
                   </div>
                   <div className="font-black text-slate-900 text-[11px] leading-tight group-hover:text-primary transition line-clamp-1">
                     {c.name}
                   </div>
-                  <div className="text-[9px] text-slate-400 font-bold mt-0.5">{c.count}+ services</div>
+                  <div className="text-[9px] text-slate-400 font-bold mt-0.5">{c.serviceCount ?? 0} services</div>
                 </Link>
               ))}
               <Link
@@ -475,53 +500,65 @@ export default function Index() {
               </div>
             </div>
             <div ref={trendRef} className="flex gap-4 overflow-x-auto snap-x pb-2 -mx-4 px-4 md:mx-0 md:px-0 scrollbar-thin">
-              {TRENDING.map((s, i) => (
-                <TrendingCard key={s.id} s={s} index={i} saved={savedSet.has(s.id)} onSave={handleSave} />
-              ))}
+              {servicesLoading
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="shrink-0 w-56 sm:w-64 h-64 rounded-2xl bg-slate-100 animate-pulse" />
+                  ))
+                : trending.map((s, i) => (
+                    <TrendingCard key={s.id} s={s} index={i} saved={savedSet.has(s.id)} onSave={handleSave} />
+                  ))}
+              {!servicesLoading && trending.length === 0 && (
+                <p className="text-sm text-slate-400 font-semibold py-8">
+                  No services published yet — listings appear here as sellers join.
+                </p>
+              )}
             </div>
           </section>
 
-          {/* Top professionals */}
-          <section>
-            <SectionHead title="Top Professionals Near You" to="/browse" cta="View all professionals" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
-              {PROFESSIONALS.map((p) => (
-                <div key={p.name} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3.5">
-                  <div className="relative shrink-0">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-brand grid place-items-center text-white font-black text-lg">
-                      {p.initial}
+          {/* Top professionals — one card per seller, drawn from live listings */}
+          {professionals.length > 0 && (
+            <section>
+              <SectionHead title="Top Professionals Near You" to="/browse" cta="View all professionals" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
+                {professionals.map((p) => (
+                  <div key={p.sellerId ?? p.seller} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3.5">
+                    <div className="relative shrink-0">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-brand grid place-items-center text-white font-black text-lg">
+                        {p.sellerInitial}
+                      </div>
                     </div>
-                    <span
-                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black px-1.5 py-0.5 rounded-full text-white ${
-                        p.status === "Online" ? "bg-emerald-500" : "bg-amber-500"
-                      }`}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-slate-900 text-sm truncate">{p.seller}</span>
+                        {p.sellerVerified && (
+                          <i className="fas fa-circle-check text-emerald-500 text-xs shrink-0" />
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-semibold truncate">{p.category}</div>
+                      <div className="flex items-center gap-1 text-[11px] font-black text-slate-700 mt-0.5">
+                        {p.reviews > 0 ? (
+                          <>
+                            <i className="fas fa-star text-amber-400" /> {p.rating.toFixed(1)}
+                            <span className="text-slate-400 font-semibold">({p.reviews})</span>
+                            <span className="text-slate-300 mx-0.5">·</span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400 font-semibold">New seller ·</span>
+                        )}
+                        <span className="text-slate-400 font-semibold truncate">From {p.district}</span>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/service/${p.id}`}
+                      className="shrink-0 text-[11px] font-black text-primary border border-primary/30 hover:bg-primary hover:text-primary-foreground px-3.5 py-2 rounded-xl transition"
                     >
-                      {p.status}
-                    </span>
+                      Hire Now
+                    </Link>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-black text-slate-900 text-sm truncate">{p.name}</span>
-                      <i className="fas fa-circle-check text-emerald-500 text-xs shrink-0" />
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-semibold">{p.job}</div>
-                    <div className="flex items-center gap-1 text-[11px] font-black text-slate-700 mt-0.5">
-                      <i className="fas fa-star text-amber-400" /> {p.rating}
-                      <span className="text-slate-400 font-semibold">({p.reviews})</span>
-                      <span className="text-slate-300 mx-0.5">·</span>
-                      <span className="text-slate-400 font-semibold truncate">From {p.district}</span>
-                    </div>
-                  </div>
-                  <Link
-                    to={`/browse?q=${encodeURIComponent(p.job)}`}
-                    className="shrink-0 text-[11px] font-black text-primary border border-primary/30 hover:bg-primary hover:text-primary-foreground px-3.5 py-2 rounded-xl transition"
-                  >
-                    Hire Now
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* How it works */}
           <section className="bg-white rounded-3xl border border-slate-200 p-6 md:p-7">
@@ -543,15 +580,16 @@ export default function Index() {
             </div>
           </section>
 
-          {/* Testimonials */}
+          {/* Testimonials — real reviews left by buyers */}
+          {testimonials.length > 0 && (
           <section>
             <SectionHead title="What Our Customers Say" to="/feed" cta="View all reviews" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {TESTIMONIALS.map((t) => (
-                <div key={t.author} className="bg-white rounded-2xl border border-slate-200 p-5">
+              {testimonials.map((t) => (
+                <div key={t.id} className="bg-white rounded-2xl border border-slate-200 p-5">
                   <div className="flex gap-0.5 text-amber-400 text-xs mb-3">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <i key={i} className="fas fa-star" />
+                      <i key={i} className={`fas fa-star ${i < t.rating ? "" : "text-slate-200"}`} />
                     ))}
                   </div>
                   <p className="text-xs text-slate-600 font-medium leading-relaxed">"{t.text}"</p>
@@ -561,19 +599,20 @@ export default function Index() {
                     </div>
                     <div>
                       <div className="text-xs font-black text-slate-900">{t.author}</div>
-                      <div className="text-[10px] text-slate-400 font-semibold">{t.place}</div>
+                      <div className="text-[10px] text-slate-400 font-semibold">{timeAgo(t.date)}</div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           </section>
+          )}
         </div>
 
         {/* ══ Right rail (stacks below main content on <xl screens) ═════ */}
         <aside className="space-y-6 min-w-0 pb-4">
           <JoinSellerCard />
-          <RecentJobsCard />
+          <RecentJobsCard jobs={recentJobs} />
           <PostJobCard />
           <PlatformStatsCard />
           <SecurePaymentsCard />

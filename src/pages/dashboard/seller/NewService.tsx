@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { MOCK_CATEGORIES, SL_DISTRICTS } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
+import { useCategories } from "@/hooks/useCategories";
 import { addService, generateId } from "@/lib/store";
 import { toast } from "sonner";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -16,19 +17,6 @@ const sellerSidebarItems = [
   { label: "Settings", to: "/dashboard/seller/settings", icon: "fa-user-gear" },
 ];
 
-const CATEGORY_ICONS: Record<string, string> = {
-  "Technology": "fa-laptop-code",
-  "Home Services": "fa-tools",
-  "Education": "fa-book-reader",
-  "Creative": "fa-paint-brush",
-  "Repairs": "fa-wrench",
-  "Delivery": "fa-shipping-fast",
-  "Agriculture": "fa-seedling",
-  "Vehicle Service": "fa-car",
-  "Tuition": "fa-graduation-cap",
-  "Ayurveda Service": "fa-leaf",
-};
-
 const SERVICE_TYPES = ["Fixed Price", "Hourly Service", "Booking Service", "Local Service", "Online Service"];
 const PRICE_UNITS = ["project", "hour", "day", "session", "month", "delivery", "unit", "piece", "visit", "person"];
 
@@ -39,7 +27,10 @@ export default function NewService() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
+  const { categories, loading: categoriesLoading } = useCategories();
   const [category, setCategory] = useState("");
+  // Icon travels with the chosen category so new admin categories render correctly
+  const [categoryIcon, setCategoryIcon] = useState("fa-star");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagInput, setTagInput] = useState("");
@@ -77,7 +68,7 @@ export default function NewService() {
       id: serviceId,
       title: title.trim(),
       category,
-      categoryIcon: `fas ${CATEGORY_ICONS[category] ?? "fa-star"}`,
+      categoryIcon: `fas ${categoryIcon}`,
       description: description.trim(),
       price: Number(price),
       priceUnit,
@@ -159,17 +150,21 @@ export default function NewService() {
               <div className="mb-6">
                 <label className="text-xs font-bold text-slate-500 mb-3 block uppercase tracking-wide">Select a Category *</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {MOCK_CATEGORIES.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setCategory(c.name)}
-                      className={`flex items-center gap-2.5 p-3.5 rounded-2xl border-2 text-left transition font-semibold text-sm
-                        ${category === c.name ? "border-primary bg-primary/5 text-primary" : "border-slate-200 hover:border-primary/40 text-slate-600"}`}
-                    >
-                      <i className={`${c.icon} text-sm w-4 text-center`} />
-                      {c.name}
-                    </button>
-                  ))}
+                  {categoriesLoading
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-[52px] rounded-2xl bg-slate-100 animate-pulse" />
+                      ))
+                    : categories.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setCategory(c.name); setCategoryIcon(c.icon); }}
+                          className={`flex items-center gap-2.5 p-3.5 rounded-2xl border-2 text-left transition font-semibold text-sm
+                            ${category === c.name ? "border-primary bg-primary/5 text-primary" : "border-slate-200 hover:border-primary/40 text-slate-600"}`}
+                        >
+                          <i className={`fas ${c.icon} text-sm w-4 text-center`} />
+                          {c.name}
+                        </button>
+                      ))}
                 </div>
               </div>
 
@@ -312,7 +307,7 @@ export default function NewService() {
 
               <div className="border-2 border-primary/20 rounded-3xl overflow-hidden mb-6">
                 <div className="relative h-36 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center overflow-hidden">
-                  <i className={`fas ${CATEGORY_ICONS[category] ?? "fa-star"} text-[6rem] text-slate-200`} />
+                  <i className={`fas ${categoryIcon} text-[6rem] text-slate-200`} />
                   <span className="absolute top-3 left-3 bg-white/95 text-foreground text-xs font-bold px-3 py-1 rounded-full">{category}</span>
                 </div>
                 <div className="p-5">

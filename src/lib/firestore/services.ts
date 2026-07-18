@@ -95,6 +95,21 @@ export async function fetchMyServices(sellerId: string): Promise<FirestoreServic
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService));
 }
 
+/**
+ * Real per-category service counts, keyed by category name.
+ * One query over active services, tallied client-side — Firestore has no
+ * group-by, and the alternative is one count query per category.
+ */
+export async function fetchCategoryCounts(): Promise<Record<string, number>> {
+  const q = query(collection(db, SERVICES_COL), where("status", "==", "active"));
+  const snap = await getDocs(q);
+  return snap.docs.reduce<Record<string, number>>((acc, d) => {
+    const category = (d.data() as FirestoreService).category;
+    if (category) acc[category] = (acc[category] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
 export async function fetchTopServices(n = 8): Promise<FirestoreService[]> {
   const q = query(
     collection(db, SERVICES_COL),
@@ -160,7 +175,8 @@ export function subscribeToMyServices(
 
 export function subscribeToServices(
   filters: ServiceFilters,
-  callback: (services: FirestoreService[]) => void
+  callback: (services: FirestoreService[]) => void,
+  onError?: (err: unknown) => void
 ): () => void {
   const constraints: QueryConstraint[] = [
     where("status", "==", "active"),
@@ -173,7 +189,26 @@ export function subscribeToServices(
   }
 
   const q = query(collection(db, SERVICES_COL), ...constraints);
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService)));
-  });
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService))),
+    // Without a handler Firestore logs an uncaught error and the caller is
+    // left waiting forever — surface it so the UI can stop loading.
+    (err) => onError?.(err)
+  );
+}
+
+/**
+ * Every listing regardless of status — admin catalog moderation only.
+ */
+export function subscribeToAllServices(
+  callback: (services: FirestoreService[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const q = query(collection(db, SERVICES_COL), orderBy("createdAt", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService))),
+    (err) => onError?.(err)
+  );
 }

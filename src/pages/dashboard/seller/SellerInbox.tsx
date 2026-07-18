@@ -46,44 +46,6 @@ interface UIConversation {
 
 // ── Mock data fallback (used when Firebase not configured) ─────────────────────
 
-const MOCK_CONVERSATIONS: UIConversation[] = [
-  { id: "c1", buyerName: "Priyanka S.", buyerInitial: "P", serviceName: "Modern Logo Design", lastMessage: "Can you deliver the logo in SVG format?", lastAt: new Date(Date.now() - 120000), unread: 2, online: true },
-  { id: "c2", buyerName: "Asanka K.", buyerInitial: "A", serviceName: "AC Servicing", lastMessage: "Is it available this Saturday at 10 AM?", lastAt: new Date(Date.now() - 3900000), unread: 1, online: false },
-  { id: "c3", buyerName: "Malith D.", buyerInitial: "M", serviceName: "Social Media Kit", lastMessage: "Perfect! The designs look amazing, thanks!", lastAt: new Date(Date.now() - 10800000), unread: 0, online: false },
-  { id: "c4", buyerName: "Nirmala R.", buyerInitial: "N", serviceName: "Business Cards Pack", lastMessage: "Can you use a different font for the name?", lastAt: new Date(Date.now() - 21600000), unread: 0, online: true },
-  { id: "c5", buyerName: "Chamara B.", buyerInitial: "C", serviceName: "Modern Logo Design", lastMessage: "How many revision rounds are included?", lastAt: new Date(Date.now() - 86400000), unread: 0, online: false },
-];
-
-const MOCK_MESSAGES: Record<string, UIMessage[]> = {
-  c1: [
-    { id: "m1", from: "other", text: "Hi! I saw your logo design service on Needlyy.", sentAt: new Date(Date.now() - 1800000), read: true },
-    { id: "m2", from: "me", text: "Hello! Thanks for reaching out. How can I help you?", sentAt: new Date(Date.now() - 1680000), read: true },
-    { id: "m3", from: "other", text: "I need a logo for my bakery business. Modern and clean style.", sentAt: new Date(Date.now() - 1500000), read: true },
-    { id: "m4", from: "me", text: "That sounds great! Could you share some color preferences and inspiration logos?", sentAt: new Date(Date.now() - 1200000), read: true },
-    { id: "m5", from: "other", text: "Sure! I like warm tones — maybe cream and terracotta. I'll send some refs.", sentAt: new Date(Date.now() - 600000), read: true },
-    { id: "m6", from: "other", text: "Can you deliver the logo in SVG format?", sentAt: new Date(Date.now() - 120000), read: false },
-  ],
-  c2: [
-    { id: "m1", from: "other", text: "Hello, I need my AC serviced ASAP.", sentAt: new Date(Date.now() - 5400000), read: true },
-    { id: "m2", from: "me", text: "Hi Asanka! I can arrange that. Which area are you in?", sentAt: new Date(Date.now() - 5100000), read: true },
-    { id: "m3", from: "other", text: "Nugegoda. 2 units — split type.", sentAt: new Date(Date.now() - 4800000), read: true },
-    { id: "m4", from: "other", text: "Is it available this Saturday at 10 AM?", sentAt: new Date(Date.now() - 3900000), read: false },
-  ],
-  c3: [
-    { id: "m1", from: "other", text: "Hi, received the kit. Just going through it.", sentAt: new Date(Date.now() - 14400000), read: true },
-    { id: "m2", from: "me", text: "Great! Let me know if you need any revisions.", sentAt: new Date(Date.now() - 12600000), read: true },
-    { id: "m3", from: "other", text: "Perfect! The designs look amazing, thanks!", sentAt: new Date(Date.now() - 10800000), read: true },
-  ],
-  c4: [
-    { id: "m1", from: "other", text: "Hi, I placed an order for business cards.", sentAt: new Date(Date.now() - 28800000), read: true },
-    { id: "m2", from: "me", text: "Hello Nirmala! Got your order. I'll start on it today.", sentAt: new Date(Date.now() - 27000000), read: true },
-    { id: "m3", from: "other", text: "Can you use a different font for the name? Something more elegant.", sentAt: new Date(Date.now() - 21600000), read: true },
-  ],
-  c5: [
-    { id: "m1", from: "other", text: "Hello, I'm interested in your logo service.", sentAt: new Date(Date.now() - 90000000), read: true },
-    { id: "m2", from: "other", text: "How many revision rounds are included?", sentAt: new Date(Date.now() - 86400000), read: true },
-  ],
-};
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -119,16 +81,16 @@ export default function SellerInbox() {
 
   // ── Conversation list state ──────────────────────────────────────────────────
   const [conversations, setConversations] = useState<UIConversation[]>(
-    usingFirebase ? [] : MOCK_CONVERSATIONS
+    []
   );
   const [loadingConvos, setLoadingConvos] = useState(usingFirebase);
 
   // ── Active conversation + messages ───────────────────────────────────────────
   const [activeId, setActiveId] = useState<string | null>(
-    usingFirebase ? null : MOCK_CONVERSATIONS[0]?.id ?? null
+    null
   );
   const [messages, setMessages] = useState<UIMessage[]>(
-    usingFirebase ? [] : (MOCK_MESSAGES[MOCK_CONVERSATIONS[0]?.id] ?? [])
+    []
   );
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
@@ -176,7 +138,7 @@ export default function SellerInbox() {
         );
       } else {
         // Mock mode
-        setMessages(MOCK_MESSAGES[id] ?? []);
+        setMessages([]);
         setConversations((prev) =>
           prev.map((c) =>
             c.id === id
@@ -365,22 +327,30 @@ export default function SellerInbox() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <a
-                    href={`tel:${activeConvo.buyerPhone ?? "+94771234567"}`}
-                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 grid place-items-center text-slate-600 transition"
-                    title="Call buyer"
-                  >
-                    <i className="fas fa-phone text-sm" />
-                  </a>
-                  <a
-                    href={`https://wa.me/${(activeConvo.buyerPhone ?? "+94771234567").replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 rounded-full bg-emerald-50 hover:bg-emerald-100 grid place-items-center text-emerald-600 transition"
-                    title="WhatsApp"
-                  >
-                    <i className="fab fa-whatsapp text-sm" />
-                  </a>
+                  {/* Only offer to dial when the buyer actually shared a number —
+                      a placeholder fallback would call an unrelated stranger. */}
+                  {activeConvo.buyerPhone ? (
+                    <>
+                      <a
+                        href={`tel:${activeConvo.buyerPhone}`}
+                        className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 grid place-items-center text-slate-600 transition"
+                        title="Call buyer"
+                      >
+                        <i className="fas fa-phone text-sm" />
+                      </a>
+                      <a
+                        href={`https://wa.me/${activeConvo.buyerPhone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-9 h-9 rounded-full bg-emerald-50 hover:bg-emerald-100 grid place-items-center text-emerald-600 transition"
+                        title="WhatsApp"
+                      >
+                        <i className="fab fa-whatsapp text-sm" />
+                      </a>
+                    </>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400">No phone shared</span>
+                  )}
                   <Link
                     to="/dashboard/seller/orders"
                     className="w-9 h-9 rounded-full bg-primary/10 hover:bg-primary/20 grid place-items-center text-primary transition"

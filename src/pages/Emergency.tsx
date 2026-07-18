@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
-import { SL_DISTRICTS } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
 import { addBooking, generateId } from "@/lib/store";
 import { toast } from "sonner";
+import { useServices } from "@/hooks/useServices";
 
 const EMERGENCY_TYPES = [
   { id: "roof", icon: "fa-house-crack", label: "Roof Leak", desc: "Emergency roof repair and waterproofing", price: 8500, surge: "1.5×", color: "from-red-500 to-rose-600" },
@@ -15,11 +16,6 @@ const EMERGENCY_TYPES = [
   { id: "lockout", icon: "fa-lock-open", label: "Lockout / Keys", desc: "Locked out of home or car, key replacement", price: 3500, surge: "1.5×", color: "from-violet-500 to-purple-600" },
 ];
 
-const NEARBY_VENDORS = [
-  { name: "Sunil Perera", initial: "S", service: "Electrician", eta: "12 min", rating: 4.9, jobs: 234, verified: true },
-  { name: "Ravi Kumar", initial: "R", service: "Plumber", eta: "18 min", rating: 4.8, jobs: 187, verified: true },
-  { name: "Asith Jayasinghe", initial: "A", service: "Handyman", eta: "22 min", rating: 4.7, jobs: 98, verified: false },
-];
 
 export default function Emergency() {
   usePageTitle("Emergency Dispatch");
@@ -32,6 +28,19 @@ export default function Emergency() {
   const [details, setDetails] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [dispatched, setDispatched] = useState(false);
+
+  const { services } = useServices();
+
+  // Real sellers who list in the chosen district, shown instead of a
+  // fabricated "responders near you" list.
+  const responders = useMemo(
+    () =>
+      services
+        .filter((sv) => sv.district === district)
+        .sort((a, b) => b.rating - a.rating || b.reviews - a.reviews)
+        .slice(0, 3),
+    [services, district]
+  );
 
   const emergency = EMERGENCY_TYPES.find((e) => e.id === selected);
 
@@ -50,10 +59,10 @@ export default function Emergency() {
         serviceTitle: `EMERGENCY: ${emergency?.label}`,
         category: "Emergency",
         categoryIcon: `fas ${emergency?.icon ?? "fa-triangle-exclamation"}`,
-        vendorName: NEARBY_VENDORS[0].name,
-        vendorPhone: "+94771234567",
-        vendorInitial: NEARBY_VENDORS[0].initial,
-        vendorVerified: true,
+        vendorName: "Awaiting assignment",
+        vendorPhone: "",
+        vendorInitial: "?",
+        vendorVerified: false,
         customerName: name,
         customerPhone: phone,
         date: new Date().toLocaleDateString("en-CA"),
@@ -62,7 +71,7 @@ export default function Emergency() {
         extraData: { "Address": address },
         price: emergency?.price ?? 5000,
         district,
-        status: "confirmed",
+        status: "pending",
         createdAt: new Date().toISOString(),
         isEmergency: true,
       });
@@ -78,41 +87,22 @@ export default function Emergency() {
           <div className="w-24 h-24 rounded-full bg-red-500 text-white grid place-items-center mx-auto mb-6 shadow-glow">
             <i className="fas fa-truck-fast text-4xl" />
           </div>
-          <h1 className="text-3xl font-black mb-2">Help is on the way!</h1>
+          <h1 className="text-3xl font-black mb-2">Request received</h1>
           <p className="text-muted-foreground mb-8">
-            <strong className="text-foreground">{NEARBY_VENDORS[0].name}</strong> has been dispatched and will arrive in approximately <strong className="text-primary">12–18 minutes</strong>.
+            Your emergency request has been logged and sent to available responders in{" "}
+            <strong className="text-foreground">{district}</strong>. You will be contacted on{" "}
+            <strong className="text-foreground">{phone}</strong> as soon as a provider accepts.
           </p>
 
-          <div className="bg-card border border-border rounded-3xl p-6 mb-6 text-left space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="grid place-items-center w-12 h-12 rounded-2xl bg-gradient-brand text-primary-foreground font-black text-lg shrink-0">
-                {NEARBY_VENDORS[0].initial}
-              </span>
-              <div>
-                <div className="font-black">{NEARBY_VENDORS[0].name}</div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <i className="fas fa-shield-halved text-primary text-[9px]" /> Verified
-                  <span className="mx-1">·</span>
-                  <i className="fas fa-star text-amber-400 text-[9px]" /> {NEARBY_VENDORS[0].rating}
-                  <span className="mx-1">·</span>
-                  {NEARBY_VENDORS[0].jobs} jobs
-                </div>
-              </div>
-              <a
-                href={`https://wa.me/94771234567?text=Hi, I'm at ${address}. I have a ${emergency?.label} emergency.`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-auto flex items-center gap-1.5 bg-[#25D366] text-white px-4 py-2 rounded-xl text-xs font-bold"
-              >
-                <i className="fab fa-whatsapp" /> Chat
-              </a>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-100 rounded-2xl">
-              <i className="fas fa-clock text-amber-500" />
-              <div>
-                <div className="text-sm font-bold">ETA: 12–18 minutes</div>
-                <div className="text-xs text-muted-foreground">Tracking available via WhatsApp</div>
+          <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 mb-6 text-left">
+            <div className="flex gap-3">
+              <i className="fas fa-triangle-exclamation text-amber-500 mt-0.5" />
+              <div className="text-sm">
+                <div className="font-black text-amber-900">If this is life-threatening, call emergency services now</div>
+                <p className="text-amber-800 mt-1">
+                  Ambulance / Fire / Police: <a href="tel:119" className="font-black underline">119</a> ·
+                  Accident Service: <a href="tel:0112691111" className="font-black underline"> 011 269 1111</a>
+                </p>
               </div>
             </div>
           </div>
@@ -197,30 +187,37 @@ export default function Emergency() {
                 ))}
               </div>
 
-              {/* Nearby vendors preview */}
-              <div className="bg-card border border-border rounded-3xl p-6">
-                <h3 className="font-black mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Available Responders Near You
-                </h3>
-                <div className="space-y-3">
-                  {NEARBY_VENDORS.map((v, i) => (
-                    <div key={v.name} className="flex items-center gap-3 p-3 bg-foreground/5 rounded-2xl">
-                      <span className="grid place-items-center w-10 h-10 rounded-xl bg-gradient-brand text-primary-foreground font-black shrink-0">
-                        {v.initial}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 font-bold text-sm">
-                          {v.name}
-                          {v.verified && <i className="fas fa-shield-halved text-primary text-[9px]" />}
+              {/* Responders drawn from real listings in the chosen district */}
+              {responders.length > 0 && (
+                <div className="bg-card border border-border rounded-3xl p-6">
+                  <h3 className="font-black mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Providers Near You
+                  </h3>
+                  <div className="space-y-3">
+                    {responders.map((v) => (
+                      <Link key={v.id} to={`/service/${v.id}`} className="flex items-center gap-3 p-3 bg-foreground/5 rounded-2xl hover:bg-foreground/10 transition">
+                        <span className="grid place-items-center w-10 h-10 rounded-xl bg-gradient-brand text-primary-foreground font-black shrink-0">
+                          {v.sellerInitial}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 font-bold text-sm">
+                            {v.seller}
+                            {v.sellerVerified && <i className="fas fa-shield-halved text-primary text-[9px]" />}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {v.category}
+                            {v.reviews > 0 && (
+                              <> · <i className="fas fa-star text-amber-400 text-[9px]" /> {v.rating.toFixed(1)} ({v.reviews})</>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">{v.service} · <i className="fas fa-star text-amber-400 text-[9px]" /> {v.rating} · {v.jobs} jobs</div>
-                      </div>
-                      <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full shrink-0">{v.eta}</span>
-                    </div>
-                  ))}
+                        <span className="text-xs font-black text-slate-500 shrink-0">{v.district}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Booking form */}

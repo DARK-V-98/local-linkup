@@ -6,3 +6,4 @@ export * from "./saved";
 export * from "./conversations";
 export * from "./feed";
 export * from "./reviews";
+export * from "./categories";

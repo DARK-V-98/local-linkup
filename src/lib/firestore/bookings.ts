@@ -123,3 +123,19 @@ export function subscribeToBookingsBySeller(
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking)));
   });
 }
+
+/**
+ * Every booking on the platform — admin screens only.
+ * The security rules restrict reads to admins and the parties involved.
+ */
+export function subscribeToAllBookings(
+  callback: (bookings: FirestoreBooking[]) => void,
+  onError?: (err: unknown) => void
+): () => void {
+  const q = query(collection(db, BOOKINGS_COL), orderBy("createdAt", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking))),
+    (err) => onError?.(err)
+  );
+}

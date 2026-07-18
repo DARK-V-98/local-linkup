@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
-import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
+import { useService } from "@/hooks/useService";
+import { useServices } from "@/hooks/useServices";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { addBooking, generateId } from "@/lib/store";
 import { addNotification } from "@/components/NotificationsDropdown";
@@ -11,8 +12,6 @@ import { getSaved, toggleSaved } from "@/lib/saved";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { addFirestoreBooking } from "@/lib/firestore/bookings";
 import { getUser } from "@/lib/auth";
-
-const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
 const BOOKING_EXTRA_FIELDS: Record<string, { label: string; placeholder: string }[]> = {
   "Vehicle Service": [
@@ -64,7 +63,8 @@ function StarRating({ rating }: { rating: number }) {
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const service = allServices.find((s) => s.id === id);
+  const { service, reviews, loading } = useService(id);
+  const { services: allServices } = useServices();
 
   usePageTitle(
     service ? `${service.title} by ${service.seller}` : "Service Detail",
@@ -90,6 +90,15 @@ export default function ServiceDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <div className="h-10 w-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading service…</p>
+      </div>
+    );
+  }
+
   if (!service) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
@@ -100,7 +109,6 @@ export default function ServiceDetail() {
     );
   }
 
-  const reviews = MOCK_REVIEWS.filter((r) => r.serviceId === service.id);
   const extraFields = BOOKING_EXTRA_FIELDS[service.category] ?? [];
   const related = allServices.filter((s) => s.category === service.category && s.id !== service.id).slice(0, 3);
 
@@ -148,7 +156,7 @@ export default function ServiceDetail() {
       // Always write to localStorage
       addBooking(bookingData);
       // Dual-write to Firestore if configured
-      if (isFirebaseConfigured && currentUser && !currentUser.id.startsWith("UDEMO")) {
+      if (isFirebaseConfigured && currentUser) {
         await addFirestoreBooking({
           ...bookingData,
           buyerId: currentUser.id,
@@ -349,6 +357,14 @@ export default function ServiceDetail() {
                           </div>
                           <StarRating rating={r.rating} />
                           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{r.text}</p>
+                          {r.reply && (
+                            <div className="mt-3 rounded-2xl bg-foreground/5 border border-border p-3">
+                              <div className="text-[11px] font-black uppercase tracking-wide text-muted-foreground mb-1">
+                                <i className="fas fa-reply mr-1" />Reply from {service.seller}
+                              </div>
+                              <p className="text-sm text-muted-foreground leading-relaxed">{r.reply}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -3,11 +3,11 @@ import { useSearchParams, Link } from "react-router-dom";
 import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { MOCK_CATEGORIES, MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, SL_DISTRICTS } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { getSaved, toggleSaved } from "@/lib/saved";
-
-const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
+import { useCategories } from "@/hooks/useCategories";
+import { useServices } from "@/hooks/useServices";
 
 const ITEMS_PER_PAGE = 9;
 const SERVICE_TYPES = ["All Types", "Fixed Price", "Hourly Service", "Booking Service", "Local Service", "Online Service"];
@@ -22,6 +22,8 @@ const SORT_OPTIONS = [
 export default function Browse() {
   usePageTitle("Browse Services", "Search and filter verified local professionals across Sri Lanka. Find the right service for you.");
   const [searchParams] = useSearchParams();
+  const { categories } = useCategories({ withCounts: true });
+  const { services: allServices, loading: servicesLoading, error: servicesError } = useServices();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [activeCategory, setActiveCategory] = useState(searchParams.get("category") ?? "all");
   const [district, setDistrict] = useState(searchParams.get("district") ?? "All Districts");
@@ -209,17 +211,17 @@ export default function Browse() {
                 >
                   All Services
                 </button>
-                {MOCK_CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setActiveCategory(c.name)}
                     className={`w-full text-left px-4 py-2.5 rounded-xl font-semibold text-sm transition flex items-center justify-between ${activeCategory === c.name ? "bg-primary/10 text-primary" : "hover:bg-foreground/5 text-muted-foreground"}`}
                   >
                     <span className="flex items-center gap-2">
-                      <i className={`${c.icon} text-xs w-4`} />
+                      <i className={`fas ${c.icon} text-xs w-4`} />
                       {c.name}
                     </span>
-                    <span className="text-[10px] opacity-60 bg-foreground/5 px-2 py-0.5 rounded-md">{c.count}</span>
+                    <span className="text-[10px] opacity-60 bg-foreground/5 px-2 py-0.5 rounded-md">{c.serviceCount ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -256,7 +258,7 @@ export default function Browse() {
           <div className="flex-1">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-7">
               <div className="text-sm font-bold text-muted-foreground">
-                <span className="text-foreground font-black">{filtered.length}</span> results
+                <span className="text-foreground font-black">{servicesLoading ? "…" : filtered.length}</span> results
                 {activeCategory !== "all" && <span> in <span className="text-primary">{activeCategory}</span></span>}
                 {district !== "All Districts" && <span> · <span className="text-primary">{district}</span></span>}
               </div>
@@ -353,11 +355,32 @@ export default function Browse() {
               </div>
             )}
 
-            {filtered.length === 0 && (
+            {servicesLoading && (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-72 rounded-3xl bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {servicesError && (
+              <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                <i className="fas fa-triangle-exclamation mr-2" />
+                Services could not be loaded. {servicesError}
+              </div>
+            )}
+
+            {!servicesLoading && !servicesError && filtered.length === 0 && (
               <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-border">
                 <i className="fas fa-magnifying-glass text-5xl text-slate-200 mb-4" />
-                <h3 className="text-xl font-bold text-slate-400">No results found</h3>
-                <p className="text-sm text-slate-400 mt-1">Try adjusting your filters or search terms.</p>
+                <h3 className="text-xl font-bold text-slate-400">
+                  {allServices.length === 0 ? "No services listed yet" : "No results found"}
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  {allServices.length === 0
+                    ? "Be the first — register as a seller and publish your service."
+                    : "Try adjusting your filters or search terms."}
+                </p>
                 <button
                   onClick={() => {
                     setSearch(""); setActiveCategory("all"); setDistrict("All Districts");

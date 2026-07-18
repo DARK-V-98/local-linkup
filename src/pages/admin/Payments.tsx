@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, StoredBooking } from "@/lib/store";
+import { type StoredBooking } from "@/lib/store";
+import { useAllBookings } from "@/hooks/useAllBookings";
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
@@ -55,10 +56,9 @@ const BAR_COLORS = ["hsl(var(--primary))", "#10b981", "#f59e0b", "#8b5cf6", "#ef
 
 export default function AdminPayments() {
   usePageTitle("Payments — Admin");
-  const [bookings, setBookings] = useState<StoredBooking[]>([]);
+  const { bookings } = useAllBookings();
   const [period, setPeriod] = useState<"monthly" | "category">("monthly");
 
-  useEffect(() => { setBookings(getBookings()); }, []);
 
   const completed = useMemo(() => bookings.filter((b) => b.status === "completed"), [bookings]);
   const gmv = useMemo(() => completed.reduce((s, b) => s + b.price, 0), [completed]);

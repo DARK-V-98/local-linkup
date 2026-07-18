@@ -1,16 +1,32 @@
 // ─── AuthUser interface ────────────────────────────────────────────────────────
 
+/**
+ * The site owner / developer account. Whenever this email signs in — or
+ * registers, as a buyer or a seller — it is promoted to the `developer` role,
+ * which carries every admin power plus developer-only tooling.
+ *
+ * This client-side check is for UI only. The real enforcement lives in
+ * firestore.rules, which reads the email straight off the verified Firebase
+ * Auth token and cannot be spoofed from the browser.
+ */
+export const DEVELOPER_EMAIL = "tikfese@gmail.com";
+
+export type UserRole = "buyer" | "seller" | "admin" | "developer";
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   phone: string;
-  role: "buyer" | "seller" | "admin";
+  role: UserRole;
   district: string;
   verified: boolean;
   joinedAt: string;
   bio?: string;
   sellerCategory?: string;
+  /** How the seller registered — individuals and businesses verify differently */
+  sellerType?: "individual" | "business";
+  businessName?: string;
   avatarUrl?: string;
 }
 
@@ -41,74 +57,40 @@ export function isLoggedIn(): boolean {
   return getUser() !== null;
 }
 
+/** True for the owner account — the only role above `admin`. */
+export function isDeveloper(user = getUser()): boolean {
+  return user?.role === "developer";
+}
+
+/** Developer and admin share every admin surface; developer adds more on top. */
+export function hasAdminAccess(user = getUser()): boolean {
+  return user?.role === "admin" || user?.role === "developer";
+}
+
+/**
+ * Resolves the effective role for an email at sign-in / sign-up time.
+ * The owner email always outranks whatever is stored on the profile.
+ */
+export function resolveRole(email: string, storedRole: UserRole): UserRole {
+  return email.trim().toLowerCase() === DEVELOPER_EMAIL ? "developer" : storedRole;
+}
+
 export function genUserId(): string {
   return "U" + Math.random().toString(36).substring(2, 10).toUpperCase();
 }
-
-// ─── Demo accounts (kept for offline/demo mode) ────────────────────────────────
-
-export const DEMO_ACCOUNTS: Record<string, { password: string; user: AuthUser }> = {
-  "buyer@demo.com": {
-    password: "demo123",
-    user: {
-      id: "UDEMO01",
-      name: "Saman Perera",
-      email: "buyer@demo.com",
-      phone: "+94771234567",
-      role: "buyer",
-      district: "Colombo",
-      verified: true,
-      joinedAt: "2024-01-15",
-    },
-  },
-  "seller@demo.com": {
-    password: "demo123",
-    user: {
-      id: "UDEMO02",
-      name: "Tharindu P.",
-      email: "seller@demo.com",
-      phone: "+94779876543",
-      role: "seller",
-      district: "Colombo",
-      verified: true,
-      joinedAt: "2023-06-10",
-      sellerCategory: "Technology",
-    },
-  },
-  "admin@demo.com": {
-    password: "demo123",
-    user: {
-      id: "UDEMO00",
-      name: "Admin User",
-      email: "admin@demo.com",
-      phone: "+94700000000",
-      role: "admin",
-      district: "Colombo",
-      verified: true,
-      joinedAt: "2023-01-01",
-    },
-  },
-};
 
 // ─── Firebase Auth (async — used by Login, Register pages) ────────────────────
 // These functions are tree-shaken if Firebase is not configured.
 
 import { isFirebaseConfigured, auth } from "@/lib/firebase";
-import { getUserProfile, createUserProfile } from "@/lib/firestore/users";
+import { getUserProfile, createUserProfile, updateUserProfile } from "@/lib/firestore/users";
 
 export async function signInWithFirebase(
   email: string,
   password: string
 ): Promise<AuthUser> {
-  // 1. Demo accounts always work (offline-first)
-  const demo = DEMO_ACCOUNTS[email.toLowerCase()];
-  if (demo && demo.password === password) {
-    setUser(demo.user);
-    return demo.user;
-  }
-
   if (!isFirebaseConfigured) {
-    throw new Error("Firebase not configured. Use demo accounts or set up .env");
+    throw new Error("Sign-in is unavailable — Firebase is not configured.");
   }
 
   const { signInWithEmailAndPassword } = await import("firebase/auth");
@@ -116,17 +98,21 @@ export async function signInWithFirebase(
 
   const profile = await getUserProfile(cred.user.uid);
   if (profile) {
-    setUser(profile);
-    return profile;
+    // The owner email is promoted on every sign-in, so developer access
+    // survives even if the stored profile says otherwise.
+    const promoted = await ensureDeveloperRole(profile);
+    setUser(promoted);
+    return promoted;
   }
 
   // Profile missing — create a minimal one from Firebase Auth
+  const resolvedEmail = cred.user.email ?? email;
   const minimal: AuthUser = {
     id: cred.user.uid,
     name: cred.user.displayName ?? email.split("@")[0],
-    email: cred.user.email ?? email,
+    email: resolvedEmail,
     phone: cred.user.phoneNumber ?? "",
-    role: "buyer",
+    role: resolveRole(resolvedEmail, "buyer"),
     district: "Colombo",
     verified: cred.user.emailVerified,
     joinedAt: new Date().toISOString().split("T")[0],
@@ -134,6 +120,25 @@ export async function signInWithFirebase(
   await createUserProfile(cred.user.uid, minimal);
   setUser(minimal);
   return minimal;
+}
+
+/**
+ * Promotes the owner account to `developer` and persists it, so the role is
+ * correct the first time that email signs in — whether it originally
+ * registered as a buyer or a seller.
+ */
+async function ensureDeveloperRole(profile: AuthUser): Promise<AuthUser> {
+  const role = resolveRole(profile.email, profile.role);
+  if (role === profile.role) return profile;
+
+  const promoted = { ...profile, role, verified: true };
+  try {
+    await updateUserProfile(profile.id, { role, verified: true });
+  } catch {
+    // Offline or rules rejected the write — the session still gets the role,
+    // and firestore.rules grants access from the token email regardless.
+  }
+  return promoted;
 }
 
 export async function signUpBuyer(data: {
@@ -150,7 +155,7 @@ export async function signUpBuyer(data: {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      role: "buyer",
+      role: resolveRole(data.email, "buyer"),
       district: data.district,
       verified: false,
       joinedAt: new Date().toISOString().split("T")[0],
@@ -173,7 +178,7 @@ export async function signUpBuyer(data: {
     name: data.name,
     email: data.email,
     phone: data.phone,
-    role: "buyer",
+    role: resolveRole(data.email, "buyer"),
     district: data.district,
     verified: false,
     joinedAt: new Date().toISOString().split("T")[0],
@@ -193,6 +198,8 @@ export async function signUpSeller(data: {
   sellerCategory: string;
   district?: string;
   bio?: string;
+  sellerType?: "individual" | "business";
+  businessName?: string;
 }): Promise<AuthUser> {
   if (!isFirebaseConfigured) {
     const user: AuthUser = {
@@ -200,12 +207,14 @@ export async function signUpSeller(data: {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      role: "seller",
+      role: resolveRole(data.email, "seller"),
       district: data.district ?? "Colombo",
       verified: false,
       joinedAt: new Date().toISOString().split("T")[0],
       sellerCategory: data.sellerCategory,
       bio: data.bio,
+      sellerType: data.sellerType,
+      businessName: data.businessName,
     };
     setUser(user);
     return user;
@@ -225,12 +234,14 @@ export async function signUpSeller(data: {
     name: data.name,
     email: data.email,
     phone: data.phone,
-    role: "seller",
+    role: resolveRole(data.email, "seller"),
     district: data.district ?? "Colombo",
     verified: false,
     joinedAt: new Date().toISOString().split("T")[0],
     sellerCategory: data.sellerCategory,
     bio: data.bio,
+    sellerType: data.sellerType,
+    businessName: data.businessName,
   };
   await createUserProfile(cred.user.uid, userData);
 
@@ -257,7 +268,7 @@ export async function signInWithGoogle(): Promise<AuthUser> {
       name: cred.user.displayName ?? cred.user.email?.split("@")[0] ?? "User",
       email: cred.user.email ?? "",
       phone: cred.user.phoneNumber ?? "",
-      role: "buyer",
+      role: resolveRole(cred.user.email ?? "", "buyer"),
       district: "Colombo",
       verified: cred.user.emailVerified,
       joinedAt: new Date().toISOString().split("T")[0],
@@ -265,6 +276,8 @@ export async function signInWithGoogle(): Promise<AuthUser> {
     };
     await createUserProfile(cred.user.uid, userData);
     profile = { id: cred.user.uid, ...userData };
+  } else {
+    profile = await ensureDeveloperRole(profile);
   }
 
   setUser(profile);

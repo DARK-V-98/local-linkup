@@ -1,6 +1,8 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToUsers, setUserStatus, type UserProfile } from "@/lib/firestore/users";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -15,7 +17,7 @@ const adminSidebarItems = [
   { label: "System Settings", to: "/admin/settings", icon: "fa-gears" },
 ];
 
-type Role = "buyer" | "seller" | "admin";
+type Role = "buyer" | "seller" | "admin" | "developer";
 type UserStatus = "active" | "suspended" | "pending";
 
 interface AdminUser {
@@ -33,22 +35,28 @@ interface AdminUser {
   earned?: number;
 }
 
-const USERS: AdminUser[] = [
-  { id: "U001", name: "Saman Perera", email: "buyer@demo.com", phone: "+94771234567", role: "buyer", district: "Colombo", status: "active", verified: true, joinedAt: "2024-01-15", orders: 12, spent: 68500 },
-  { id: "U002", name: "Tharindu P.", email: "seller@demo.com", phone: "+94779876543", role: "seller", district: "Colombo", status: "active", verified: true, joinedAt: "2023-06-10", orders: 87, earned: 142500 },
-  { id: "U003", name: "Kamani Silva", email: "k.silva@gmail.com", phone: "+94772233445", role: "buyer", district: "Kandy", status: "active", verified: false, joinedAt: "2024-03-20", orders: 3, spent: 12000 },
-  { id: "U004", name: "Kasun Jayasuriya", email: "kasun.j@gmail.com", phone: "+94773344556", role: "seller", district: "Galle", status: "pending", verified: false, joinedAt: "2024-10-18", orders: 0, earned: 0 },
-  { id: "U005", name: "Nimal Dissanayake", email: "nimal.d@gmail.com", phone: "+94774455667", role: "buyer", district: "Colombo", status: "active", verified: true, joinedAt: "2023-11-05", orders: 25, spent: 185000 },
-  { id: "U006", name: "Eco Cleaners", email: "eco@cleaners.lk", phone: "+94775566778", role: "seller", district: "Negombo", status: "suspended", verified: false, joinedAt: "2024-02-14", orders: 4, earned: 18000 },
-  { id: "U007", name: "Pradeep Fernando", email: "pradeep.f@gmail.com", phone: "+94776677889", role: "buyer", district: "Gampaha", status: "active", verified: false, joinedAt: "2024-07-30", orders: 1, spent: 5500 },
-  { id: "U008", name: "Sumudu Wijeratne", email: "sumudu.w@gmail.com", phone: "+94777788990", role: "seller", district: "Colombo", status: "active", verified: true, joinedAt: "2023-09-12", orders: 56, earned: 324000 },
-  { id: "U009", name: "Admin User", email: "admin@demo.com", phone: "+94700000000", role: "admin", district: "Colombo", status: "active", verified: true, joinedAt: "2023-01-01", orders: 0 },
-];
+function toAdminUser(p: UserProfile): AdminUser {
+  return {
+    id: p.id,
+    name: p.name ?? "Unnamed",
+    email: p.email ?? "",
+    phone: p.phone ?? "",
+    role: (p.role ?? "buyer") as Role,
+    district: p.district ?? "—",
+    status: p.status ?? "active",
+    verified: Boolean(p.verified),
+    joinedAt: p.joinedAt ?? "",
+    orders: p.totalOrders ?? 0,
+    spent: p.role === "buyer" ? p.totalEarnings ?? 0 : undefined,
+    earned: p.role === "seller" ? p.totalEarnings ?? 0 : undefined,
+  };
+}
 
 const ROLE_STYLE: Record<Role, string> = {
   buyer: "bg-blue-50 text-blue-600 border-blue-200",
   seller: "bg-violet-50 text-violet-600 border-violet-200",
   admin: "bg-red-50 text-red-600 border-red-200",
+  developer: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
 const STATUS_STYLE: Record<UserStatus, string> = {
@@ -58,11 +66,27 @@ const STATUS_STYLE: Record<UserStatus, string> = {
 };
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState<AdminUser[]>(USERS);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(isFirebaseConfigured);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "all">("all");
   const [selected, setSelected] = useState<AdminUser | null>(null);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsub = subscribeToUsers(
+      (docs) => {
+        setUsers(docs.map(toAdminUser));
+        setLoading(false);
+      },
+      () => {
+        toast.error("Could not load users.");
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, []);
 
   const filtered = users.filter((u) => {
     const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
@@ -71,14 +95,20 @@ export default function AdminUsers() {
     return matchSearch && matchRole && matchStatus;
   });
 
-  const toggleSuspend = (id: string) => {
-    setUsers((prev) => prev.map((u) => u.id === id
-      ? { ...u, status: u.status === "suspended" ? "active" : "suspended" }
-      : u
-    ));
-    const u = users.find((u) => u.id === id);
-    if (selected?.id === id) setSelected((prev) => prev ? { ...prev, status: prev.status === "suspended" ? "active" : "suspended" } : null);
-    toast.success(u?.status === "suspended" ? "User reactivated." : "User suspended.");
+  const toggleSuspend = async (id: string) => {
+    const u = users.find((x) => x.id === id);
+    if (!u) return;
+    const next: UserStatus = u.status === "suspended" ? "active" : "suspended";
+
+    if (selected?.id === id) setSelected({ ...selected, status: next });
+    try {
+      await setUserStatus(id, next);
+      // The snapshot listener refreshes the row; no local mutation needed.
+      toast.success(next === "active" ? "User reactivated." : "User suspended.");
+    } catch {
+      if (selected?.id === id) setSelected({ ...selected, status: u.status });
+      toast.error("Could not update this user.");
+    }
   };
 
   const counts = {
@@ -190,10 +220,18 @@ export default function AdminUsers() {
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && (
+          {loading && (
+            <div className="text-center py-16 text-slate-400">
+              <i className="fas fa-spinner fa-spin text-2xl mb-3 block" />
+              <div className="font-bold">Loading users…</div>
+            </div>
+          )}
+          {!loading && filtered.length === 0 && (
             <div className="text-center py-16 text-slate-400">
               <i className="fas fa-users text-3xl mb-3 block opacity-30" />
-              <div className="font-bold">No users match your search</div>
+              <div className="font-bold">
+                {users.length === 0 ? "No users have registered yet" : "No users match your search"}
+              </div>
             </div>
           )}
         </div>

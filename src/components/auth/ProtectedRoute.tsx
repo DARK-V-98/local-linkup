@@ -40,6 +40,7 @@ export default function ProtectedRoute({
 
   if (roles && !roles.includes(user.role)) {
     const home: Record<Role, string> = {
+      developer: "/admin",
       admin: "/admin",
       seller: "/dashboard/seller",
       buyer: "/dashboard/buyer",

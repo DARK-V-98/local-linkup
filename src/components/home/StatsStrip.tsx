@@ -1,19 +1,27 @@
-import { useEffect, useState } from "react";
-import { getBookings } from "@/lib/store";
+import { usePlatformStats } from "@/hooks/usePlatformStats";
 
 export default function StatsStrip() {
-  const [taskCount, setTaskCount] = useState("18,000+");
+  const {
+    loading,
+    sellerCount,
+    serviceCount,
+    categoryCount,
+    districtCount,
+    averageRating,
+    reviewCount,
+  } = usePlatformStats();
 
-  useEffect(() => {
-    const stored = getBookings().length;
-    if (stored > 0) setTaskCount(`${(18000 + stored).toLocaleString()}+`);
-  }, []);
+  // Nothing published yet — a strip of zeros reads worse than no strip at all.
+  if (!loading && serviceCount === 0) return null;
 
   const stats = [
-    { icon: "fa-users", value: "2,500+", label: "Active Sellers" },
-    { icon: "fa-circle-check", value: taskCount, label: "Tasks Completed" },
-    { icon: "fa-table-cells-large", value: "100+", label: "Categories" },
-    { icon: "fa-star", value: "4.9 / 5", label: "Average Rating" },
+    { icon: "fa-users", value: sellerCount.toLocaleString(), label: sellerCount === 1 ? "Active Seller" : "Active Sellers" },
+    { icon: "fa-briefcase", value: serviceCount.toLocaleString(), label: serviceCount === 1 ? "Service Listed" : "Services Listed" },
+    { icon: "fa-table-cells-large", value: categoryCount.toLocaleString(), label: "Categories" },
+    // Only claim a rating once real reviews exist.
+    reviewCount > 0
+      ? { icon: "fa-star", value: `${averageRating.toFixed(1)} / 5`, label: "Average Rating" }
+      : { icon: "fa-location-dot", value: districtCount.toLocaleString(), label: districtCount === 1 ? "District Covered" : "Districts Covered" },
   ];
 
   return (
@@ -28,7 +36,7 @@ export default function StatsStrip() {
               <span className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/10 text-primary-glow">
                 <i className={`fas ${s.icon} text-xl leading-none`} />
               </span>
-              <div className="text-3xl md:text-4xl font-black text-white mt-3">{s.value}</div>
+              <div className="text-3xl md:text-4xl font-black text-white mt-3">{loading ? "—" : s.value}</div>
               <div className="text-sm text-slate-400 font-semibold mt-1">{s.label}</div>
             </div>
           ))}

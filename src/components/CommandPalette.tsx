@@ -9,7 +9,8 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { MOCK_CATEGORIES, MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES } from "@/data/mock";
+import { useServices } from "@/hooks/useServices";
+import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/hooks/useAuth";
 
 const PAGES = [
@@ -50,13 +51,14 @@ const ROLE_LINKS: Record<string, Array<{ label: string; to: string; icon: string
   ],
 };
 
-const ALL_SERVICES = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
 
 /**
  * Global Ctrl+K / Cmd+K command palette: quick navigation to pages,
  * categories, services and role-specific dashboard shortcuts.
  */
 export default function CommandPalette() {
+  const { categories } = useCategories();
+  const { services } = useServices();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -113,13 +115,13 @@ export default function CommandPalette() {
         <CommandSeparator />
 
         <CommandGroup heading="Categories">
-          {MOCK_CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <CommandItem
               key={c.id}
               value={`category ${c.name} ${c.description}`}
               onSelect={() => go(`/browse?category=${encodeURIComponent(c.name)}`)}
             >
-              <i className={`${c.icon} mr-2 w-4 text-muted-foreground`} />
+              <i className={`fas ${c.icon} mr-2 w-4 text-muted-foreground`} />
               {c.name}
               <span className="ml-2 text-xs text-muted-foreground">{c.description}</span>
             </CommandItem>
@@ -128,13 +130,13 @@ export default function CommandPalette() {
         <CommandSeparator />
 
         <CommandGroup heading="Services">
-          {ALL_SERVICES.map((s) => (
+          {services.map((s) => (
             <CommandItem
               key={s.id}
               value={`service ${s.title} ${s.category} ${s.seller} ${s.district}`}
               onSelect={() => go(`/service/${s.id}`)}
             >
-              <i className={`${s.categoryIcon} mr-2 w-4 text-muted-foreground`} />
+              <i className={`fas ${s.categoryIcon} mr-2 w-4 text-muted-foreground`} />
               <span className="truncate">{s.title}</span>
               <span className="ml-auto pl-3 text-xs text-muted-foreground whitespace-nowrap">
                 Rs {s.price.toLocaleString()}

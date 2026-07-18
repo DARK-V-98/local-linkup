@@ -2,19 +2,24 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
 import { signUpSeller } from "@/lib/auth";
-import { MOCK_CATEGORIES } from "@/data/mock";
+import { useCategories } from "@/hooks/useCategories";
 import { toast } from "sonner";
 
 type SellerType = "individual" | "business";
 
 export default function RegisterSeller() {
   const navigate = useNavigate();
+  const { categories, loading: categoriesLoading } = useCategories();
   const [type, setType] = useState<SellerType>("individual");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Persist step-1 data across steps
+  // Step fields unmount when the step changes, so each step's values must be
+  // captured on submit — a FormData read at step 3 only sees step 3's inputs.
   const [step1Data, setStep1Data] = useState({ name: "", email: "", phone: "", password: "" });
+  const [step2Data, setStep2Data] = useState({
+    category: "", city: "", bio: "", businessName: "",
+  });
 
   const totalSteps = 3;
 
@@ -39,15 +44,29 @@ export default function RegisterSeller() {
       return;
     }
 
+    if (step === 2) {
+      const category = (data.get("category") as string) ?? "";
+      const bio = (data.get("bio") as string) ?? "";
+      const businessName = (data.get("businessName") as string) ?? "";
+      // Businesses give an address rather than a city field
+      const city = (data.get("city") as string) || (data.get("address") as string) || "Colombo";
+      if (!category) { toast.error("Please select a primary category."); return; }
+      setStep2Data({ category, city, bio, businessName });
+      next();
+      return;
+    }
+
     if (step < totalSteps) {
       next();
       return;
     }
 
     // Step 3 — final submit
-    const category = (data.get("category") as string) ?? "";
-    const bio = (data.get("bio") as string) ?? "";
-    const city = (data.get("city") as string) ?? "Colombo";
+    if (!step2Data.category) {
+      toast.error("Please go back and select a primary category.");
+      setStep(2);
+      return;
+    }
     setLoading(true);
     try {
       await signUpSeller({
@@ -55,9 +74,11 @@ export default function RegisterSeller() {
         email: step1Data.email,
         phone: step1Data.phone,
         password: step1Data.password,
-        sellerCategory: category || "General",
-        district: city,
-        bio,
+        sellerCategory: step2Data.category,
+        district: step2Data.city,
+        bio: step2Data.bio,
+        sellerType: type,
+        businessName: step2Data.businessName || undefined,
       });
       toast.success("Application submitted! Our admin team will verify you within 24h.");
       navigate("/dashboard/seller");
@@ -112,10 +133,17 @@ export default function RegisterSeller() {
         {step === 2 && type === "individual" && (
           <>
             <div className="grid md:grid-cols-2 gap-4">
-              <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
-                <option value="">Select a category</option>
-                {MOCK_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+              <SelectField
+                label="Primary category"
+                name="category"
+                icon="fa-layer-group"
+                defaultValue={step2Data.category}
+                disabled={categoriesLoading}
+                required
+              >
+                <option value="">{categoriesLoading ? "Loading categories…" : "Select a category"}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </SelectField>
               <Field label="Years of experience" name="experience" placeholder="3" icon="fa-clock" type="number" min={0} required />
@@ -133,10 +161,17 @@ export default function RegisterSeller() {
               <Field label="Business reg. number" name="brn" placeholder="PV 12345" icon="fa-file-contract" required />
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-              <SelectField label="Primary category" name="category" icon="fa-layer-group" required>
-                <option value="">Select a category</option>
-                {MOCK_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+              <SelectField
+                label="Primary category"
+                name="category"
+                icon="fa-layer-group"
+                defaultValue={step2Data.category}
+                disabled={categoriesLoading}
+                required
+              >
+                <option value="">{categoriesLoading ? "Loading categories…" : "Select a category"}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </SelectField>
               <SelectField label="Team size" name="teamSize" icon="fa-people-group" required>

@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { getUser, setUser } from "@/lib/auth";
-import { SL_DISTRICTS, MOCK_CATEGORIES } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
+import { useCategories } from "@/hooks/useCategories";
 import { toast } from "sonner";
 import { isFirebaseConfigured, storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -22,6 +23,7 @@ const AVAILABILITY_OPTIONS = [
 ];
 
 export default function SellerSettings() {
+  const { categories } = useCategories();
   const user = getUser();
 
   const [tab, setTab] = useState<"profile" | "availability" | "notifications" | "security">("profile");
@@ -73,7 +75,7 @@ export default function SellerSettings() {
     if (file.size > 2 * 1024 * 1024) { toast.error("Image must be under 2MB."); return; }
     setUploading(true);
     try {
-      if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+      if (isFirebaseConfigured && user) {
         const storageRef = ref(storage, `avatars/${user.id}`);
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
@@ -106,7 +108,7 @@ export default function SellerSettings() {
           sellerCategory: profile.sellerCategory,
         };
         setUser({ ...user, ...updates });
-        if (isFirebaseConfigured && !user.id.startsWith("UDEMO")) {
+        if (isFirebaseConfigured) {
           await updateUserProfile(user.id, updates);
         }
         window.dispatchEvent(new Event("needly-auth-change"));
@@ -215,7 +217,7 @@ export default function SellerSettings() {
                     className="w-full bg-background border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 appearance-none"
                   >
                     <option value="">Select category</option>
-                    {MOCK_CATEGORIES.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
               </div>

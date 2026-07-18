@@ -61,7 +61,7 @@ export default function SellerOrders() {
 
   useEffect(() => {
     const user = getUser();
-    if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+    if (isFirebaseConfigured && user) {
       const unsub = subscribeToBookingsBySeller(user.id, (firestoreOrders) => {
         const local = getBookings();
         const fsIds = new Set(firestoreOrders.map((b) => b.id));

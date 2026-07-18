@@ -184,7 +184,11 @@ export default function Header() {
                   )}
                 </span>
                 <span className="text-sm font-semibold max-w-[100px] truncate">{user.name.split(" ")[0]}</span>
-                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${user.role === "admin" ? "bg-red-100 text-red-600" : user.role === "seller" ? "bg-violet-100 text-violet-600" : "bg-emerald-100 text-emerald-600"}`}>
+                <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+                  user.role === "developer" ? "bg-amber-100 text-amber-700"
+                    : user.role === "admin" ? "bg-red-100 text-red-600"
+                    : user.role === "seller" ? "bg-violet-100 text-violet-600"
+                    : "bg-emerald-100 text-emerald-600"}`}>
                   {user.role}
                 </span>
                 <i className={`fas fa-chevron-down text-[8px] text-muted-foreground transition-transform duration-200 ${showUserMenu ? "rotate-180" : ""}`} />

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getBookings } from "@/lib/store";
+import { useAllBookings } from "@/hooks/useAllBookings";
 import { formatPrice } from "@/lib/format";
 
 const adminSidebarItems = [
@@ -32,9 +32,8 @@ const data = [
 export default function AdminDashboard() {
   usePageTitle("Admin Dashboard");
   const [activeTab, setActiveTab] = useState("revenue");
-  const [bookings, setBookings] = useState(getBookings());
+  const { bookings } = useAllBookings();
 
-  useEffect(() => { setBookings(getBookings()); }, []);
 
   const stats = useMemo(() => {
     const completed = bookings.filter((b) => b.status === "completed");

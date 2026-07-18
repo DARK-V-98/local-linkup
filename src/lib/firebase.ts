@@ -36,24 +36,23 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // ─── Firestore (with offline persistence) ─────────────────────────────────────
+// Uses the project's default database. A named database ("needlyy") was
+// configured previously but never created, so every query failed with
+// NOT_FOUND and the app silently fell back to local mock data.
 export const db = isFirebaseConfigured
   ? (() => {
       try {
-        return initializeFirestore(
-          app,
-          {
-            localCache: persistentLocalCache({
-              tabManager: persistentMultipleTabManager(),
-            }),
-          },
-          "needlyy"
-        );
+        return initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        });
       } catch {
         // Already initialized (hot-reload)
-        return getFirestore(app, "needlyy");
+        return getFirestore(app);
       }
     })()
-  : getFirestore(app, "needlyy");
+  : getFirestore(app);
 
 // ─── Storage ───────────────────────────────────────────────────────────────────
 export const storage = getStorage(app);

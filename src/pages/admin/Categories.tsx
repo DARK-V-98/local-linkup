@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
 import { usePageTitle } from "@/lib/usePageTitle";
-import { getAdminCategories, saveAdminCategories, AdminCategory } from "@/lib/adminCategories";
+import { useCategories } from "@/hooks/useCategories";
+import type { AdminCategory } from "@/lib/adminCategories";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -25,57 +26,77 @@ const COMMON_ICONS = [
   "fa-hammer","fa-wrench","fa-paint-roller","fa-plug","fa-droplet","fa-fire",
 ];
 
-const BLANK: Omit<AdminCategory, "id" | "createdAt"> = { name: "", icon: "fa-tag", description: "", count: 0, active: true };
+type CategoryForm = Pick<AdminCategory, "name" | "icon" | "description" | "active">;
+
+const BLANK: CategoryForm = { name: "", icon: "fa-tag", description: "", active: true };
 
 export default function AdminCategories() {
   usePageTitle("Categories — Admin");
-  const [cats, setCats] = useState<AdminCategory[]>([]);
+  const { categories: cats, loading, error, add, update, remove } = useCategories({
+    includeInactive: true,
+    withCounts: true,
+  });
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<AdminCategory | null>(null);
-  const [form, setForm] = useState(BLANK);
+  const [form, setForm] = useState<CategoryForm>(BLANK);
   const [iconSearch, setIconSearch] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setCats(getAdminCategories()); }, []);
-
-  const save = () => {
-    if (!form.name.trim()) { toast.error("Category name is required."); return; }
+  const save = async () => {
+    const name = form.name.trim();
+    if (!name) { toast.error("Category name is required."); return; }
     if (!form.icon.trim()) { toast.error("Please select an icon."); return; }
-    let updated: AdminCategory[];
-    if (editing) {
-      updated = cats.map((c) => c.id === editing.id ? { ...editing, ...form } : c);
-      toast.success("Category updated.");
-    } else {
-      const newCat: AdminCategory = { ...form, id: `cat_${Date.now()}`, createdAt: new Date().toISOString() };
-      updated = [...cats, newCat];
-      toast.success("Category added.");
+
+    const clash = cats.find(
+      (c) => c.name.toLowerCase() === name.toLowerCase() && c.id !== editing?.id
+    );
+    if (clash) { toast.error(`"${clash.name}" already exists.`); return; }
+
+    setSaving(true);
+    try {
+      if (editing) {
+        await update(editing.id, { ...form, name });
+        toast.success("Category updated.");
+      } else {
+        await add({ ...form, name });
+        toast.success(`"${name}" is now available to sellers.`);
+      }
+      setShowForm(false);
+      setEditing(null);
+      setForm(BLANK);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save the category.");
+    } finally {
+      setSaving(false);
     }
-    saveAdminCategories(updated);
-    setCats(updated);
-    setShowForm(false);
-    setEditing(null);
-    setForm(BLANK);
   };
 
-  const toggleActive = (id: string) => {
-    const updated = cats.map((c) => c.id === id ? { ...c, active: !c.active } : c);
-    saveAdminCategories(updated);
-    setCats(updated);
-    const cat = cats.find((c) => c.id === id);
-    toast.success(`"${cat?.name}" ${cat?.active ? "deactivated" : "activated"}.`);
+  const toggleActive = async (cat: AdminCategory) => {
+    try {
+      await update(cat.id, { active: !cat.active });
+      toast.success(`"${cat.name}" ${cat.active ? "hidden from sellers" : "activated"}.`);
+    } catch {
+      toast.error("Could not update the category.");
+    }
   };
 
-  const del = (id: string) => {
-    const cat = cats.find((c) => c.id === id);
-    const updated = cats.filter((c) => c.id !== id);
-    saveAdminCategories(updated);
-    setCats(updated);
-    toast.success(`"${cat?.name}" deleted.`);
+  const del = async (cat: AdminCategory) => {
+    if (cat.serviceCount) {
+      toast.error(`"${cat.name}" has ${cat.serviceCount} live service(s). Deactivate it instead.`);
+      return;
+    }
+    try {
+      await remove(cat.id);
+      toast.success(`"${cat.name}" deleted.`);
+    } catch {
+      toast.error("Could not delete the category.");
+    }
   };
 
   const openEdit = (cat: AdminCategory) => {
     setEditing(cat);
-    setForm({ name: cat.name, icon: cat.icon, description: cat.description, count: cat.count, active: cat.active });
+    setForm({ name: cat.name, icon: cat.icon, description: cat.description, active: cat.active });
     setShowForm(true);
   };
 
@@ -104,7 +125,7 @@ export default function AdminCategories() {
         {[
           { label: "Total Categories", val: cats.length, icon: "fa-tags", color: "text-blue-600 bg-blue-50" },
           { label: "Active", val: active, icon: "fa-circle-check", color: "text-emerald-600 bg-emerald-50" },
-          { label: "Total Services", val: cats.reduce((s, c) => s + c.count, 0).toLocaleString() + "+", icon: "fa-briefcase", color: "text-violet-600 bg-violet-50" },
+          { label: "Live Services", val: cats.reduce((s, c) => s + (c.serviceCount ?? 0), 0).toLocaleString(), icon: "fa-briefcase", color: "text-violet-600 bg-violet-50" },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
             <span className={`w-9 h-9 rounded-xl ${s.color} grid place-items-center shrink-0`}>
@@ -125,6 +146,30 @@ export default function AdminCategories() {
           className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30" />
       </div>
 
+      {error && (
+        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+          <i className="fas fa-triangle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-28 rounded-2xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-slate-300 py-16 text-center">
+          <i className="fas fa-tags text-3xl text-slate-300" />
+          <p className="mt-3 font-bold text-slate-500">
+            {search ? `No categories match "${search}".` : "No categories yet."}
+          </p>
+          <p className="text-sm text-slate-400">Add one so sellers can register their business under it.</p>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((cat) => (
@@ -141,17 +186,18 @@ export default function AdminCategories() {
               </div>
               <p className="text-xs text-slate-400 mt-0.5 leading-tight truncate">{cat.description}</p>
               <div className="text-xs font-bold text-slate-500 mt-1.5">
-                <i className="fas fa-briefcase text-primary mr-1" />{cat.count}+ services
+                <i className="fas fa-briefcase text-primary mr-1" />
+                {cat.serviceCount ?? 0} live {cat.serviceCount === 1 ? "service" : "services"}
               </div>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
-              <button onClick={() => openEdit(cat)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-primary hover:text-white text-slate-500 grid place-items-center transition">
+              <button onClick={() => openEdit(cat)} title="Edit" className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-primary hover:text-white text-slate-500 grid place-items-center transition">
                 <i className="fas fa-pen text-[10px]" />
               </button>
-              <button onClick={() => toggleActive(cat.id)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-500 grid place-items-center transition">
+              <button onClick={() => toggleActive(cat)} title={cat.active ? "Hide from sellers" : "Activate"} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-500 grid place-items-center transition">
                 <i className={`fas ${cat.active ? "fa-eye-slash" : "fa-eye"} text-[10px]`} />
               </button>
-              <button onClick={() => del(cat.id)} className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 grid place-items-center transition">
+              <button onClick={() => del(cat)} title="Delete" className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 grid place-items-center transition">
                 <i className="fas fa-trash text-[10px]" />
               </button>
             </div>
@@ -200,23 +246,21 @@ export default function AdminCategories() {
                 <p className="text-xs text-slate-400 mt-1">Selected: <code className="bg-slate-100 px-1 rounded">{form.icon}</code></p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Base Service Count</label>
-                  <input type="number" min={0} value={form.count} onChange={(e) => setForm({ ...form, count: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30" />
-                </div>
-                <div className="flex flex-col justify-end">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="w-4 h-4 accent-primary" />
-                    <span className="text-sm font-bold text-slate-700">Active</span>
-                  </label>
-                </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="w-4 h-4 accent-primary" />
+                  <span className="text-sm font-bold text-slate-700">Active</span>
+                </label>
+                <p className="text-xs text-slate-400 mt-1">
+                  Active categories appear on the home page and in the seller registration and
+                  service forms. Service counts are read live from the catalog.
+                </p>
               </div>
             </div>
 
             <div className="flex gap-3 mt-7">
-              <button onClick={save} className="flex-1 bg-gradient-brand text-primary-foreground py-3 rounded-2xl font-bold text-sm shadow-glow hover:scale-105 transition">
+              <button onClick={save} disabled={saving} className="flex-1 bg-gradient-brand text-primary-foreground py-3 rounded-2xl font-bold text-sm shadow-glow hover:scale-105 transition disabled:opacity-60 disabled:hover:scale-100">
+                {saving && <i className="fas fa-spinner fa-spin mr-2" />}
                 {editing ? "Save Changes" : "Add Category"}
               </button>
               <button onClick={() => setShowForm(false)} className="px-5 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition">

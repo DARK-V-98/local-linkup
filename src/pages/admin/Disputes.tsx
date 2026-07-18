@@ -1,6 +1,14 @@
-﻿import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import {
+  subscribeToDisputes,
+  addDisputeMessage,
+  setDisputeStatus,
+  type FSDispute,
+} from "@/lib/firestore/disputes";
+import { tsToIso } from "@/lib/firestore/normalize";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -62,62 +70,27 @@ const TYPE_STYLE: Record<DisputeType, string> = {
   other: "bg-slate-100 text-slate-600",
 };
 
-const INITIAL: Dispute[] = [
-  {
-    id: "D-1001", orderId: "BK-4122", type: "no_show", status: "open",
-    buyerName: "Saman Perera", sellerName: "Tharindu Plumbing", service: "Emergency Pipe Fix",
-    amount: 5500, raisedAt: "30 mins ago",
-    description: "Seller confirmed the booking but never arrived. I waited 2 hours and couldn't reach them.",
-    messages: [
-      { from: "buyer", text: "He said he would arrive at 10am but never showed up. My number is +94771234567.", time: "30 mins ago" },
-    ],
-  },
-  {
-    id: "D-1002", orderId: "BK-3987", type: "quality", status: "investigating",
-    buyerName: "Nimal Dissanayake", sellerName: "Lanka Cleaners", service: "Deep Home Cleaning",
-    amount: 8000, raisedAt: "2 hours ago",
-    description: "The cleaning was incomplete. Bathrooms were not cleaned at all. I have photos.",
-    messages: [
-      { from: "buyer", text: "The team only cleaned 2 rooms out of 4. Bathrooms still dirty.", time: "2 hrs ago" },
-      { from: "seller", text: "We cleaned everything as agreed. The buyer asked for extra rooms not in the original booking.", time: "1 hr ago" },
-      { from: "admin", text: "We are reviewing the booking details and photos submitted. Please allow 24 hours.", time: "45 mins ago" },
-    ],
-  },
-  {
-    id: "D-1003", orderId: "BK-3755", type: "payment", status: "investigating",
-    buyerName: "Kamani Rathnayake", sellerName: "Sky Electricals", service: "Wiring Installation",
-    amount: 22000, raisedAt: "1 day ago",
-    description: "Seller demanded Rs. 22,000 but the agreed price was Rs. 15,000. Refusing to leave without extra payment.",
-    messages: [
-      { from: "buyer", text: "We agreed on Rs.15,000 verbally. Now he wants Rs.22,000 saying extra parts were used.", time: "1 day ago" },
-      { from: "seller", text: "We used additional fuses and wiring as the job was bigger than stated. Standard practice.", time: "20 hrs ago" },
-    ],
-  },
-  {
-    id: "D-1004", orderId: "BK-3601", type: "fraud", status: "open",
-    buyerName: "Pradeep Silva", sellerName: "QuickFix Pro", service: "AC Repair",
-    amount: 12000, raisedAt: "3 days ago",
-    description: "Seller collected payment upfront then disappeared. Profile looks fake. Phone now unreachable.",
-    messages: [
-      { from: "buyer", text: "I paid Rs.12,000 via bank transfer. He collected money and blocked my number.", time: "3 days ago" },
-    ],
-  },
-  {
-    id: "D-1005", orderId: "BK-3210", type: "quality", status: "resolved",
-    buyerName: "Anjali Fernando", sellerName: "Green Gardens", service: "Garden Landscaping",
-    amount: 35000, raisedAt: "1 week ago",
-    description: "Plants died within 3 days. Seller refused to replace.",
-    messages: [
-      { from: "buyer", text: "All 12 plants died. Seller promised 1-month guarantee but is ignoring messages.", time: "1 week ago" },
-      { from: "seller", text: "The customer didn't water the plants as instructed.", time: "6 days ago" },
-      { from: "admin", text: "After review, seller has agreed to replace 6 plants as a goodwill gesture. Dispute resolved.", time: "4 days ago" },
-    ],
-    resolution: "Partial refund of Rs.15,000 issued. Seller replaced 6 plants. Both parties agreed.",
-  },
-];
+function toDispute(d: FSDispute): Dispute {
+  return {
+    id: d.id,
+    orderId: d.orderId,
+    type: d.type,
+    status: d.status,
+    buyerName: d.buyerName,
+    sellerName: d.sellerName,
+    service: d.service,
+    amount: d.amount ?? 0,
+    raisedAt: tsToIso(d.createdAt),
+    description: d.description,
+    messages: (d.messages ?? []).map((m) => ({ from: m.from, text: m.text, time: m.at })),
+    resolution: d.resolution,
+  };
+}
+
 
 export default function Disputes() {
-  const [disputes, setDisputes] = useState<Dispute[]>(INITIAL);
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [loading, setLoading] = useState(isFirebaseConfigured);
   const [filter, setFilter] = useState<DisputeStatus | "all">("open");
   const [selected, setSelected] = useState<Dispute | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -133,27 +106,59 @@ export default function Disputes() {
 
   const filtered = filter === "all" ? disputes : disputes.filter((d) => d.status === filter);
 
-  const sendReply = () => {
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsub = subscribeToDisputes(
+      (docs) => {
+        setDisputes(docs.map(toDispute));
+        setLoading(false);
+      },
+      () => {
+        toast.error("Could not load disputes.");
+        setLoading(false);
+      }
+    );
+    return unsub;
+  }, []);
+
+  const sendReply = async () => {
     if (!replyText.trim() || !selected) return;
-    const msg: DisputeMessage = { from: "admin", text: replyText, time: "Just now" };
-    setDisputes((prev) => prev.map((d) => d.id === selected.id ? { ...d, messages: [...d.messages, msg], status: d.status === "open" ? "investigating" : d.status } : d));
-    setSelected((prev) => prev ? { ...prev, messages: [...prev.messages, msg], status: prev.status === "open" ? "investigating" : prev.status } : null);
-    setReplyText("");
-    toast.success("Message sent to both parties.");
+    const at = new Date().toISOString();
+    const nextStatus = selected.status === "open" ? "investigating" : selected.status;
+    try {
+      await addDisputeMessage(selected.id, { from: "admin", text: replyText, at }, nextStatus);
+      setSelected({
+        ...selected,
+        messages: [...selected.messages, { from: "admin", text: replyText, time: at }],
+        status: nextStatus,
+      });
+      setReplyText("");
+      toast.success("Message sent to both parties.");
+    } catch {
+      toast.error("Could not send the message.");
+    }
   };
 
-  const resolveDispute = () => {
+  const resolveDispute = async () => {
     if (!resolution.trim() || !selected) return;
-    setDisputes((prev) => prev.map((d) => d.id === selected.id ? { ...d, status: "resolved", resolution } : d));
-    setSelected((prev) => prev ? { ...prev, status: "resolved", resolution } : null);
-    toast.success("Dispute marked as resolved.");
-    setResolution("");
+    try {
+      await setDisputeStatus(selected.id, "resolved", resolution);
+      setSelected({ ...selected, status: "resolved", resolution });
+      setResolution("");
+      toast.success("Dispute marked as resolved.");
+    } catch {
+      toast.error("Could not resolve this dispute.");
+    }
   };
 
-  const closeDispute = (id: string) => {
-    setDisputes((prev) => prev.map((d) => d.id === id ? { ...d, status: "closed" } : d));
-    if (selected?.id === id) setSelected((prev) => prev ? { ...prev, status: "closed" } : null);
-    toast.success("Dispute closed.");
+  const closeDispute = async (id: string) => {
+    try {
+      await setDisputeStatus(id, "closed");
+      if (selected?.id === id) setSelected({ ...selected, status: "closed" });
+      toast.success("Dispute closed.");
+    } catch {
+      toast.error("Could not close this dispute.");
+    }
   };
 
   return (

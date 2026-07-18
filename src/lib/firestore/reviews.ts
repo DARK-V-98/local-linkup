@@ -95,3 +95,20 @@ export function subscribeToServiceReviews(
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview)));
   });
 }
+
+/**
+ * Recent high-rated reviews across the whole platform, for the home page
+ * testimonial strip. Reviews are publicly readable.
+ */
+export async function getTopReviews(n = 3): Promise<FSReview[]> {
+  const { limit } = await import("firebase/firestore");
+  const q = query(
+    collection(db, REVIEWS_COL),
+    where("rating", ">=", 4),
+    orderBy("rating", "desc"),
+    orderBy("createdAt", "desc"),
+    limit(n)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview));
+}

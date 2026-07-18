@@ -4,22 +4,14 @@ import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { toast } from "sonner";
-import { MOCK_CATEGORIES, SL_DISTRICTS } from "@/data/mock";
+import { SL_DISTRICTS } from "@/data/catalog";
+import { useCategories } from "@/hooks/useCategories";
+import { useJobRequests } from "@/hooks/useJobRequests";
+import { addJobRequest } from "@/lib/firestore/jobRequests";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { getUser } from "@/lib/auth";
+import { timeAgo } from "@/lib/format";
 
-interface JobPost {
-  id: string;
-  title: string;
-  category: string;
-  categoryIcon: string;
-  description: string;
-  budget: string;
-  district: string;
-  urgency: "flexible" | "this_week" | "urgent";
-  postedAt: string;
-  responses: number;
-  name: string;
-  verified: boolean;
-}
 
 const URGENCY_LABELS = { flexible: "Flexible", this_week: "This Week", urgent: "Urgent" };
 const URGENCY_STYLE = {
@@ -28,19 +20,12 @@ const URGENCY_STYLE = {
   urgent: "bg-rose-50 text-rose-600",
 };
 
-const SAMPLE_POSTS: JobPost[] = [
-  { id: "JB001", title: "Need a plumber for bathroom pipe leak", category: "Plumbing", categoryIcon: "fa-wrench", description: "Small leak under the bathroom sink. Water dripping continuously. Need someone today if possible.", budget: "Rs. 2,000 – 5,000", district: "Colombo", urgency: "urgent", postedAt: "5 mins ago", responses: 3, name: "Saman P.", verified: true },
-  { id: "JB002", title: "House painting — 3 bedroom house", category: "Painting", categoryIcon: "fa-paintbrush", description: "Need a reliable painter for interior painting. 3 bedrooms, living room and kitchen. Provide own paint or quote separately.", budget: "Rs. 40,000 – 80,000", district: "Kandy", urgency: "this_week", postedAt: "2 hours ago", responses: 7, name: "Nimal D.", verified: false },
-  { id: "JB003", title: "Looking for a part-time driver — Colombo area", category: "Transport", categoryIcon: "fa-car", description: "Need a reliable driver for school runs and occasional errands. Monday to Friday, 7am–9am and 3pm–5pm.", budget: "Rs. 15,000 / month", district: "Colombo", urgency: "flexible", postedAt: "4 hours ago", responses: 12, name: "Kamani R.", verified: true },
-  { id: "JB004", title: "CCTV installation — office in Galle", category: "Technology", categoryIcon: "fa-laptop-code", description: "Need 6 cameras installed at our retail shop. Prefer someone with commercial experience and their own equipment.", budget: "Rs. 25,000 – 35,000", district: "Galle", urgency: "this_week", postedAt: "Yesterday", responses: 4, name: "Lakshan M.", verified: true },
-  { id: "JB005", title: "Catering for wedding — 200 guests", category: "Events & Catering", categoryIcon: "fa-champagne-glasses", description: "Looking for a catering team for a traditional Sri Lankan wedding reception. 200 guests. Full buffet including rice and curry, string hoppers, and dessert.", budget: "Rs. 200,000 – 350,000", district: "Colombo", urgency: "flexible", postedAt: "2 days ago", responses: 9, name: "Priya S.", verified: false },
-  { id: "JB006", title: "AC service and gas refill — home unit", category: "Home Services", categoryIcon: "fa-house-chimney-crack", description: "Split AC unit not cooling properly. Probably needs a service and gas top-up. 1.5 ton unit.", budget: "Rs. 3,000 – 8,000", district: "Negombo", urgency: "this_week", postedAt: "2 days ago", responses: 6, name: "Malith F.", verified: true },
-];
 
 export default function PostRequest() {
   usePageTitle("Post a Job — Get Quotes from Local Pros");
+  const { categories } = useCategories();
   const [view, setView] = useState<"browse" | "post">("browse");
-  const [posts] = useState<JobPost[]>(SAMPLE_POSTS);
+  const { requests: posts, loading: postsLoading } = useJobRequests();
   const [filterCat, setFilterCat] = useState("all");
   const [filterUrgency, setFilterUrgency] = useState<"all" | "flexible" | "this_week" | "urgent">("all");
   const [filterDistrict, setFilterDistrict] = useState("all");
@@ -60,7 +45,7 @@ export default function PostRequest() {
     return true;
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title || !form.category || !form.description || !form.name || !form.phone) {
       toast.error("Please fill in all required fields.");
@@ -70,11 +55,39 @@ export default function PostRequest() {
       toast.error("Description should be at least 30 characters.");
       return;
     }
+    if (!isFirebaseConfigured) {
+      toast.error("Posting is unavailable right now. Please try again later.");
+      return;
+    }
+
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    const user = getUser();
+    const budget = form.budgetMax
+      ? `Rs. ${Number(form.budget || 0).toLocaleString()} – ${Number(form.budgetMax).toLocaleString()}`
+      : form.budget
+        ? `Rs. ${Number(form.budget).toLocaleString()}`
+        : "Negotiable";
+
+    try {
+      await addJobRequest({
+        title: form.title.trim(),
+        category: form.category,
+        categoryIcon: categories.find((c) => c.name === form.category)?.icon ?? "fa-tag",
+        description: form.description.trim(),
+        budget,
+        district: form.district || "Colombo",
+        urgency: form.urgency,
+        ...(user ? { authorId: user.id } : {}),
+        authorName: form.name.trim(),
+        phone: form.phone.trim(),
+        verified: Boolean(user?.verified),
+      });
       setSubmitted(true);
-    }, 1500);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not post your request.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -146,7 +159,7 @@ export default function PostRequest() {
                 className="bg-background border border-border rounded-xl px-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All Categories</option>
-                {MOCK_CATEGORIES.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
               <select
                 value={filterDistrict}
@@ -207,7 +220,7 @@ export default function PostRequest() {
                       </span>
                       <span className="text-xs font-bold text-foreground">{post.name}</span>
                       {post.verified && <i className="fas fa-circle-check text-primary text-xs" />}
-                      <span className="text-[10px] text-muted-foreground">· {post.postedAt}</span>
+                      <span className="text-[10px] text-muted-foreground">· {timeAgo(post.postedAt)}</span>
                     </div>
                     <button
                       onClick={() => toast.success("Quote sent! The buyer will be notified.")}
@@ -220,11 +233,25 @@ export default function PostRequest() {
               ))}
             </div>
 
-            {filteredPosts.length === 0 && (
+            {postsLoading && (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-32 rounded-2xl bg-foreground/5 animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {!postsLoading && filteredPosts.length === 0 && (
               <div className="text-center py-20 text-muted-foreground">
                 <i className="fas fa-inbox text-4xl mb-4 block opacity-30" />
-                <div className="font-bold text-lg">No requests match your filters</div>
-                <button onClick={() => { setFilterCat("all"); setFilterUrgency("all"); setFilterDistrict("all"); }} className="mt-4 text-sm font-bold text-primary hover:underline">Clear filters</button>
+                <div className="font-bold text-lg">
+                  {posts.length === 0 ? "No job requests posted yet" : "No requests match your filters"}
+                </div>
+                {posts.length === 0 ? (
+                  <button onClick={() => setView("post")} className="mt-4 text-sm font-bold text-primary hover:underline">Post the first one</button>
+                ) : (
+                  <button onClick={() => { setFilterCat("all"); setFilterUrgency("all"); setFilterDistrict("all"); }} className="mt-4 text-sm font-bold text-primary hover:underline">Clear filters</button>
+                )}
               </div>
             )}
 
@@ -268,7 +295,7 @@ export default function PostRequest() {
                     className="mt-1 w-full bg-background border border-border rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Select category</option>
-                    {MOCK_CATEGORIES.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>

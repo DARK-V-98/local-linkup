@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { getUser } from "@/lib/auth";
-import { MOCK_CATEGORIES } from "@/data/mock";
+import { useCategories } from "@/hooks/useCategories";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { addFeedPost } from "@/lib/firestore/feed";
 
 export default function PostComposer() {
+  const { categories } = useCategories();
   const user = getUser();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -15,44 +18,62 @@ export default function PostComposer() {
 
   const initial = user?.name.charAt(0).toUpperCase() ?? null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !desc.trim()) return;
+    if (!user) {
+      toast.error("Please sign in to publish a post.");
+      return;
+    }
     setSubmitting(true);
-    setTimeout(() => {
-      const newPost = {
-        id: `user_${Date.now()}`,
-        author: user?.name ?? "User",
-        initial: initial ?? "U",
-        role: "Individual Seller" as const,
-        verified: false,
-        location: user?.district ?? "Sri Lanka",
-        category: category || "General",
-        categoryIcon: "fas fa-tag",
-        postedAt: new Date().toISOString(),
-        title: title.trim(),
-        description: desc.trim(),
-        price: price ? parseInt(price) : undefined,
-        priceType: "Negotiable" as const,
-        tags: [],
-        likes: 0,
-        shares: 0,
-        comments: [],
-      };
-      try {
+
+    try {
+      if (isFirebaseConfigured) {
+        await addFeedPost({
+          authorId: user.id,
+          authorName: user.name,
+          authorInitial: initial ?? "U",
+          authorRole: user.role === "seller" ? "seller" : "buyer",
+          category: category || "General",
+          title: title.trim(),
+          description: desc.trim(),
+          ...(price ? { price: Number(price) } : {}),
+        });
+      } else {
         const existing = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
-        existing.unshift(newPost);
+        existing.unshift({
+          id: `user_${Date.now()}`,
+          author: user.name,
+          initial: initial ?? "U",
+          role: "Individual Seller" as const,
+          verified: false,
+          location: user.district ?? "Sri Lanka",
+          category: category || "General",
+          categoryIcon: "fa-tag",
+          postedAt: new Date().toISOString(),
+          title: title.trim(),
+          description: desc.trim(),
+          price: price ? Number(price) : undefined,
+          tags: [],
+          likes: 0,
+          shares: 0,
+          comments: [],
+        });
         localStorage.setItem("needly_feed_posts", JSON.stringify(existing));
         window.dispatchEvent(new Event("needly-feed-change"));
-      } catch { /* ignore */ }
+      }
+
       toast.success("Post published! Buyers can now discover your service.");
-      setSubmitting(false);
       setOpen(false);
       setTitle("");
       setDesc("");
       setCategory("");
       setPrice("");
-    }, 900);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not publish your post.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleOpen = () => setOpen(true);
@@ -107,8 +128,8 @@ export default function PostComposer() {
                 className="w-full bg-muted rounded-2xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/40 appearance-none"
               >
                 <option value="">Category…</option>
-                {MOCK_CATEGORIES.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </select>
               <i className="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />

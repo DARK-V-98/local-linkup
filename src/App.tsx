@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
-import { getUser, setUser, clearUser } from "@/lib/auth";
+import { getUser, setUser, clearUser, resolveRole } from "@/lib/auth";
 import { getUserProfile } from "@/lib/firestore/users";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -55,9 +55,6 @@ const SellerInbox = lazy(() => import("./pages/dashboard/seller/SellerInbox.tsx"
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 
-import { seedLocalStorage } from "./lib/seed";
-seedLocalStorage();
-
 const queryClient = new QueryClient();
 
 function AuthStateWatcher() {
@@ -68,21 +65,16 @@ function AuthStateWatcher() {
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
           const current = getUser();
-          // Only sync if not already a demo account
-          if (!current || (!current.id.startsWith("UDEMO") && current.id !== firebaseUser.uid)) {
+          if (!current || current.id !== firebaseUser.uid) {
             const profile = await getUserProfile(firebaseUser.uid);
             if (profile) {
-              setUser(profile);
+              setUser({ ...profile, role: resolveRole(profile.email, profile.role) });
               window.dispatchEvent(new Event("needly-auth-change"));
             }
           }
-        } else {
-          const current = getUser();
-          // Only clear if it was a real Firebase user (not demo)
-          if (current && !current.id.startsWith("UDEMO")) {
-            clearUser();
-            window.dispatchEvent(new Event("needly-auth-change"));
-          }
+        } else if (getUser()) {
+          clearUser();
+          window.dispatchEvent(new Event("needly-auth-change"));
         }
       });
     });
@@ -92,9 +84,10 @@ function AuthStateWatcher() {
 }
 
 // ─── Route guard helpers ──────────────────────────────────────────────────────
-const admin = (el: React.ReactNode) => <ProtectedRoute roles={["admin"]}>{el}</ProtectedRoute>;
-const seller = (el: React.ReactNode) => <ProtectedRoute roles={["seller", "admin"]}>{el}</ProtectedRoute>;
-const buyer = (el: React.ReactNode) => <ProtectedRoute roles={["buyer", "admin"]}>{el}</ProtectedRoute>;
+// The developer role outranks admin, so it is allowed everywhere admin is.
+const admin = (el: React.ReactNode) => <ProtectedRoute roles={["admin", "developer"]}>{el}</ProtectedRoute>;
+const seller = (el: React.ReactNode) => <ProtectedRoute roles={["seller", "admin", "developer"]}>{el}</ProtectedRoute>;
+const buyer = (el: React.ReactNode) => <ProtectedRoute roles={["buyer", "admin", "developer"]}>{el}</ProtectedRoute>;
 const authed = (el: React.ReactNode) => <ProtectedRoute>{el}</ProtectedRoute>;
 
 const App = () => (

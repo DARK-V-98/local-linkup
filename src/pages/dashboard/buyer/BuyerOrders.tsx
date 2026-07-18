@@ -39,7 +39,7 @@ export default function BuyerOrders() {
   useEffect(() => {
     const user = getUser();
     // Use real-time Firestore listener when Firebase is configured and user is not a demo account
-    if (isFirebaseConfigured && user && !user.id.startsWith("UDEMO")) {
+    if (isFirebaseConfigured && user) {
       const unsub = subscribeToBookingsByBuyer(user.id, (firestoreBookings) => {
         // Merge Firestore bookings with localStorage (Firestore takes precedence)
         const local = getBookings();

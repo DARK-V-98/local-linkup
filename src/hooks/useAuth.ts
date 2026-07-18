@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { isFirebaseConfigured, auth } from "@/lib/firebase";
 import { getUserProfile } from "@/lib/firestore/users";
-import { setUser, clearUser, getUser, type AuthUser } from "@/lib/auth";
+import { setUser, clearUser, getUser, resolveRole, type AuthUser } from "@/lib/auth";
 
 /**
  * Subscribes to Firebase Auth state changes and keeps the localStorage
@@ -22,28 +22,27 @@ export function useAuth() {
 
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const current = getUser();
-        if (current?.id.startsWith("UDEMO")) {
-          // Active demo session takes precedence over a lingering Firebase login
-          setLocalUser(current);
-          setLoading(false);
-          return;
-        }
         try {
           const profile = await getUserProfile(firebaseUser.uid);
           if (profile) {
-            setUser(profile);
-            setLocalUser(profile);
+            // Keep the owner account on the developer role across reloads
+            const resolved = {
+              ...profile,
+              role: resolveRole(profile.email, profile.role),
+            };
+            setUser(resolved);
+            setLocalUser(resolved);
           } else {
+            const email = firebaseUser.email ?? "";
             const minimal: AuthUser = {
               id: firebaseUser.uid,
               name:
                 firebaseUser.displayName ??
                 firebaseUser.email?.split("@")[0] ??
                 "User",
-              email: firebaseUser.email ?? "",
+              email,
               phone: firebaseUser.phoneNumber ?? "",
-              role: "buyer",
+              role: resolveRole(email, "buyer"),
               district: "Colombo",
               verified: firebaseUser.emailVerified,
               joinedAt: new Date().toISOString().split("T")[0],
@@ -57,14 +56,8 @@ export function useAuth() {
           setLocalUser(getUser());
         }
       } else {
-        const current = getUser();
-        if (current && current.id.startsWith("UDEMO")) {
-          // Demo session — not backed by Firebase Auth; keep it alive
-          setLocalUser(current);
-        } else {
-          clearUser();
-          setLocalUser(null);
-        }
+        clearUser();
+        setLocalUser(null);
       }
       setLoading(false);
     });

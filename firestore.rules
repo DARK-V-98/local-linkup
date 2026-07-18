@@ -16,21 +16,46 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // The owner account. Derived from the verified Firebase Auth token, NOT
+    // from the user document — a client cannot forge its own token email.
+    function isDeveloper() {
+      return isAuth() && request.auth.token.email == 'tikfese@gmail.com';
+    }
+
+    // Developer outranks admin and is allowed anywhere admin is.
     function isAdmin() {
-      return isAuth() && getUserData().role == 'admin';
+      return isDeveloper() || (isAuth() && getUserData().role == 'admin');
     }
 
     function isSeller() {
       return isAuth() && getUserData().role == 'seller';
     }
 
+    // True when a write leaves the privilege fields untouched. Without this,
+    // any signed-in user could promote themselves by writing role:'admin'
+    // to their own profile.
+    function keepsPrivileges(uid) {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['role', 'verified'])
+             || isDeveloper()
+             || (request.resource.data.role == resource.data.role
+                 && request.resource.data.verified == resource.data.verified);
+    }
+
     // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{uid} {
       // Anyone can read basic profiles (for service listings)
       allow read: if isAuth();
-      // Only the user themselves or admin can write
-      allow create: if isAuth() && isSelf(uid);
-      allow update: if isAuth() && (isSelf(uid) || isAdmin());
+      // A new profile may not grant itself elevated privileges. The owner
+      // email is the sole exception — that is how developer access bootstraps.
+      allow create: if isAuth() && isSelf(uid)
+                    && (isDeveloper()
+                        || (request.resource.data.role in ['buyer', 'seller']
+                            && request.resource.data.verified == false));
+      // Users edit their own profile but cannot change role or verified status;
+      // admins and the developer can.
+      allow update: if isAuth()
+                    && ((isSelf(uid) && keepsPrivileges(uid)) || isAdmin());
       allow delete: if isAdmin();
 
       // Saved services subcollection
@@ -53,6 +78,30 @@ service cloud.firestore {
                     && (resource.data.sellerId == request.auth.uid || isAdmin());
     }
 
+    // ─── Categories ───────────────────────────────────────────────────────────
+    match /categories/{categoryId} {
+      // Public read — the home page and seller registration need these
+      allow read: if true;
+      // Only admins curate the category list
+      allow write: if isAdmin();
+    }
+
+    // ─── Job requests (the "post a job" board) ────────────────────────────────
+    match /jobRequests/{requestId} {
+      // Public board — sellers browse it to find work
+      allow read: if true;
+      // Guests may post a request; a signed-in poster must own the record
+      allow create: if !("authorId" in request.resource.data)
+                    || (isAuth() && request.resource.data.authorId == request.auth.uid);
+      // The poster or an admin can edit/close it. Sellers responding may only
+      // bump the response counter.
+      allow update: if (isAuth() && (resource.data.authorId == request.auth.uid || isAdmin()))
+                    || request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['responses']);
+      allow delete: if isAuth()
+                    && (resource.data.authorId == request.auth.uid || isAdmin());
+    }
+
     // ─── Bookings ─────────────────────────────────────────────────────────────
     match /bookings/{bookingId} {
       // Buyer or seller involved can read
@@ -68,6 +117,26 @@ service cloud.firestore {
                     && (resource.data.sellerId == request.auth.uid
                         || resource.data.buyerId == request.auth.uid
                         || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ─── Disputes ─────────────────────────────────────────────────────────────
+    match /disputes/{disputeId} {
+      // Only the two parties and admins can see a dispute
+      allow read: if isAuth()
+                  && (resource.data.buyerId == request.auth.uid
+                      || resource.data.sellerId == request.auth.uid
+                      || isAdmin());
+      // A buyer raises the dispute against their own booking
+      allow create: if isAuth()
+                    && request.resource.data.buyerId == request.auth.uid;
+      // Parties can add messages; only admins change status or resolution
+      allow update: if isAdmin()
+                    || (isAuth()
+                        && (resource.data.buyerId == request.auth.uid
+                            || resource.data.sellerId == request.auth.uid)
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['messages']));
       allow delete: if isAdmin();
     }
 

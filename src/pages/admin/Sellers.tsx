@@ -4,6 +4,12 @@ import { getBookings, getMyServices, StoredBooking, StoredService } from "@/lib/
 import { formatPrice } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { toast } from "sonner";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToAllBookings } from "@/lib/firestore/bookings";
+import { subscribeToAllServices, type FirestoreService } from "@/lib/firestore/services";
+import { useAllUsers } from "@/hooks/useAllUsers";
+import { setUserStatus, setUserVerified } from "@/lib/firestore/users";
+import { tsToIso } from "@/lib/firestore/normalize";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -19,6 +25,7 @@ const adminSidebarItems = [
 ];
 
 interface SellerProfile {
+  id?: string;
   name: string;
   initial: string;
   phone: string;
@@ -32,15 +39,6 @@ interface SellerProfile {
   joinedAt: string;
 }
 
-const BASE_SELLERS: SellerProfile[] = [
-  { name: "Tharindu Perera", initial: "T", phone: "+94771234567", verified: true, district: "Colombo", services: 3, orders: 12, gmv: 420000, avgRating: 4.9, status: "active", joinedAt: "2023-06-10" },
-  { name: "Nirmala Jayawardena", initial: "N", phone: "+94779876543", verified: true, district: "Kandy", services: 2, orders: 8, gmv: 168000, avgRating: 4.8, status: "active", joinedAt: "2023-08-20" },
-  { name: "Kasun Jayasinghe", initial: "K", phone: "+94766543210", verified: true, district: "Galle", services: 1, orders: 5, gmv: 52500, avgRating: 4.7, status: "active", joinedAt: "2023-11-05" },
-  { name: "Sumudu Fernando", initial: "S", phone: "+94788901234", verified: true, district: "Colombo", services: 4, orders: 24, gmv: 860000, avgRating: 4.9, status: "active", joinedAt: "2023-09-12" },
-  { name: "Ravi Mendis", initial: "R", phone: "+94762345678", verified: false, district: "Gampaha", services: 1, orders: 3, gmv: 18500, avgRating: 4.3, status: "active", joinedAt: "2024-02-14" },
-  { name: "Eco Cleaners Ltd", initial: "E", phone: "+94775566778", verified: false, district: "Negombo", services: 2, orders: 4, gmv: 42000, avgRating: 3.8, status: "suspended", joinedAt: "2024-02-14" },
-  { name: "Pradeep Nishantha", initial: "P", phone: "+94777654321", verified: true, district: "Colombo", services: 1, orders: 9, gmv: 112500, avgRating: 4.6, status: "active", joinedAt: "2024-01-08" },
-];
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-600",
@@ -50,7 +48,8 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function AdminSellers() {
   usePageTitle("Sellers — Admin");
-  const [sellers, setSellers] = useState<SellerProfile[]>(BASE_SELLERS);
+  const { users, loading: usersLoading } = useAllUsers();
+  const [allServices, setAllServices] = useState<FirestoreService[]>([]);
   const [bookings, setBookings] = useState<StoredBooking[]>([]);
   const [services, setServices] = useState<StoredService[]>([]);
   const [search, setSearch] = useState("");
@@ -59,42 +58,59 @@ export default function AdminSellers() {
   const [districtFilter, setDistrictFilter] = useState("All");
 
   useEffect(() => {
+    if (isFirebaseConfigured) return;
     setBookings(getBookings());
     setServices(getMyServices());
   }, []);
 
-  // Build real-data sellers from bookings
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsub = subscribeToAllBookings(
+      (docs) => setBookings(docs.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }) as StoredBooking)),
+      () => { /* non-admins cannot read every booking; counts stay at zero */ }
+    );
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const unsub = subscribeToAllServices(
+      (docs) => setAllServices(docs),
+      () => { /* listing counts stay at zero if unreadable */ }
+    );
+    return unsub;
+  }, []);
+
+  // One row per registered seller, with order volume and revenue rolled up
+  // from that seller's completed bookings.
   const enrichedSellers = useMemo(() => {
-    const fromBookings: Record<string, SellerProfile> = {};
-    bookings.filter((b) => b.status === "completed").forEach((b) => {
-      if (!fromBookings[b.vendorName]) {
-        fromBookings[b.vendorName] = {
-          name: b.vendorName, initial: b.vendorInitial, phone: b.vendorPhone,
-          verified: b.vendorVerified, district: b.district, services: 0,
-          orders: 0, gmv: 0, avgRating: 4.5, status: "active",
-          joinedAt: new Date(b.createdAt).toISOString().split("T")[0],
+    const completed = bookings.filter((b) => b.status === "completed");
+
+    return users
+      .filter((u) => u.role === "seller")
+      .map((u) => {
+        const theirs = completed.filter((b) => (b as { sellerId?: string }).sellerId === u.id || b.vendorName === u.name);
+        const listings = allServices.filter((sv) => sv.sellerId === u.id);
+        const rated = listings.filter((sv) => (sv.rating ?? 0) > 0);
+        return {
+          id: u.id,
+          name: u.name,
+          initial: (u.name ?? "?").charAt(0).toUpperCase(),
+          phone: u.phone ?? "",
+          verified: Boolean(u.verified),
+          district: u.district ?? "—",
+          services: listings.length,
+          orders: theirs.length,
+          gmv: theirs.reduce((sum, b) => sum + (b.price ?? 0), 0),
+          avgRating: rated.length
+            ? rated.reduce((sum, sv) => sum + (sv.rating ?? 0), 0) / rated.length
+            : 0,
+          status: (u.status ?? "active") as SellerProfile["status"],
+          joinedAt: u.joinedAt ?? "",
         };
-      }
-      fromBookings[b.vendorName].orders += 1;
-      fromBookings[b.vendorName].gmv += b.price;
-    });
-    // Merge: prefer BASE_SELLERS but enrich with real data
-    const merged = [...BASE_SELLERS];
-    Object.values(fromBookings).forEach((r) => {
-      const existing = merged.find((s) => s.name === r.name);
-      if (!existing) merged.push(r);
-      else {
-        existing.orders = Math.max(existing.orders, r.orders);
-        existing.gmv = Math.max(existing.gmv, r.gmv);
-      }
-    });
-    // Add services count from real services
-    services.forEach((svc) => {
-      const match = merged.find((s) => s.verified);
-      if (match) match.services = Math.max(match.services, services.length);
-    });
-    return merged;
-  }, [bookings, services]);
+      })
+      .sort((a, b) => b.gmv - a.gmv);
+  }, [users, bookings, allServices]);
 
   const allDistricts = useMemo(() => ["All", ...Array.from(new Set(enrichedSellers.map((s) => s.district)))], [enrichedSellers]);
 
@@ -108,17 +124,27 @@ export default function AdminSellers() {
     return true;
   }), [enrichedSellers, statusFilter, districtFilter, search]);
 
-  const toggleStatus = (name: string) => {
-    setSellers((prev) => prev.map((s) => s.name === name ? {
-      ...s, status: s.status === "active" ? "suspended" : "active"
-    } : s));
-    const seller = sellers.find((s) => s.name === name);
-    toast.success(`${seller?.name} ${seller?.status === "active" ? "suspended" : "activated"}.`);
+  const toggleStatus = async (name: string) => {
+    const seller = enrichedSellers.find((s) => s.name === name);
+    if (!seller?.id) return;
+    const next = seller.status === "active" ? "suspended" : "active";
+    try {
+      await setUserStatus(seller.id, next);
+      toast.success(`${seller.name} ${next === "active" ? "activated" : "suspended"}.`);
+    } catch {
+      toast.error("Could not update this seller.");
+    }
   };
 
-  const verify = (name: string) => {
-    setSellers((prev) => prev.map((s) => s.name === name ? { ...s, verified: true } : s));
-    toast.success(`${name} verified successfully.`);
+  const verify = async (name: string) => {
+    const seller = enrichedSellers.find((s) => s.name === name);
+    if (!seller?.id) return;
+    try {
+      await setUserVerified(seller.id, true);
+      toast.success(`${name} verified successfully.`);
+    } catch {
+      toast.error("Could not verify this seller.");
+    }
   };
 
   const stats = useMemo(() => ({

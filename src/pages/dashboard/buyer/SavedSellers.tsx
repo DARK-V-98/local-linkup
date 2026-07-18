@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { toast } from "sonner";
+import { useSaved } from "@/hooks/useSaved";
+import { useServices } from "@/hooks/useServices";
+import { formatPrice } from "@/lib/format";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -30,18 +33,50 @@ interface SavedSeller {
   color: string;
 }
 
-const INITIAL_SAVED: SavedSeller[] = [
-  { id: "S1", name: "Hashini W.", slug: "hashini-w", category: "Graphic Design", categoryIcon: "fa-palette", district: "Colombo", rating: 5.0, reviews: 42, orders: 312, verified: true, topRated: true, price: "From Rs. 8,500", savedAt: "Oct 10", lastBooked: "Oct 18", bio: "Award-winning graphic designer specialising in brand identity and UI design.", color: "from-violet-500 to-purple-600" },
-  { id: "S2", name: "Tharindu P.", slug: "tharindu-p", category: "Plumbing", categoryIcon: "fa-wrench", district: "Colombo", rating: 4.9, reviews: 87, orders: 560, verified: true, topRated: true, price: "From Rs. 3,500", savedAt: "Sep 22", lastBooked: "Oct 5", bio: "10+ years experience in residential and commercial plumbing. Available island-wide.", color: "from-sky-500 to-blue-600" },
-  { id: "S3", name: "Sumudu W.", slug: "sumudu-w", category: "Photography", categoryIcon: "fa-camera", district: "Colombo", rating: 5.0, reviews: 56, orders: 180, verified: true, topRated: false, price: "From Rs. 25,000", savedAt: "Aug 14", lastBooked: undefined, bio: "Professional wedding and event photographer. Canon EOS R5 system. Delivery in 48h.", color: "from-rose-500 to-pink-600" },
-  { id: "S4", name: "Kasun J.", slug: "kasun-j", category: "Tuition", categoryIcon: "fa-book", district: "Galle", rating: 4.6, reviews: 31, orders: 200, verified: true, topRated: false, price: "Rs. 2,500 / hr", savedAt: "Jul 30", lastBooked: "Sep 10", bio: "A/L Physics and Combined Maths tutor. 7 years teaching experience. 95% pass rate.", color: "from-emerald-500 to-teal-600" },
+
+const CARD_COLORS = [
+  "from-violet-500 to-purple-600",
+  "from-sky-500 to-blue-600",
+  "from-rose-500 to-pink-600",
+  "from-emerald-500 to-teal-600",
 ];
 
 export default function SavedSellers() {
-  const [saved, setSaved] = useState<SavedSeller[]>(INITIAL_SAVED);
+  const { savedIds, toggle, ready } = useSaved();
+  const { services, loading } = useServices();
 
-  const remove = (id: string) => {
-    setSaved((prev) => prev.filter((s) => s.id !== id));
+  // Saved entries are service ids; resolve each to the seller behind it.
+  const saved: SavedSeller[] = useMemo(() => {
+    const seen = new Set<string>();
+    return services
+      .filter((sv) => savedIds.has(sv.id))
+      .filter((sv) => {
+        const key = sv.sellerId ?? sv.seller;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((sv, i) => ({
+        id: sv.id,
+        name: sv.seller,
+        slug: sv.seller.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        category: sv.category,
+        categoryIcon: sv.categoryIcon,
+        district: sv.district,
+        rating: sv.rating,
+        reviews: sv.reviews,
+        orders: sv.sellerJobs ?? 0,
+        verified: Boolean(sv.sellerVerified),
+        topRated: sv.rating >= 4.8 && sv.reviews > 0,
+        price: `From ${formatPrice(sv.price)}`,
+        savedAt: "",
+        bio: sv.sellerBio ?? sv.description ?? "",
+        color: CARD_COLORS[i % CARD_COLORS.length],
+      }));
+  }, [services, savedIds]);
+
+  const remove = async (id: string) => {
+    await toggle(id);
     toast.success("Seller removed from saved list.");
   };
 
@@ -57,7 +92,13 @@ export default function SavedSellers() {
         </Link>
       </div>
 
-      {saved.length === 0 ? (
+      {loading || !ready ? (
+        <div className="grid sm:grid-cols-2 gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-64 rounded-3xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+      ) : saved.length === 0 ? (
         <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-200">
           <i className="fas fa-heart text-5xl text-slate-200 mb-4 block" />
           <h3 className="text-lg font-black text-slate-400">No saved sellers yet</h3>
@@ -103,7 +144,7 @@ export default function SavedSellers() {
                 {/* Meta */}
                 <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
                   <span><i className="fas fa-coins text-primary mr-1" />{seller.price}</span>
-                  <span><i className="fas fa-heart text-rose-400 mr-1" />Saved {seller.savedAt}</span>
+                  <span><i className="fas fa-location-dot text-slate-400 mr-1" />{seller.district}</span>
                 </div>
 
                 {seller.lastBooked && (

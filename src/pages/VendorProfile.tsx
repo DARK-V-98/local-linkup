@@ -2,11 +2,10 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { MOCK_TOP_SERVICES, MOCK_LATEST_SERVICES, MOCK_REVIEWS } from "@/data/mock";
 import { formatPrice, timeAgo } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
-
-const allServices = [...MOCK_TOP_SERVICES, ...MOCK_LATEST_SERVICES];
+import { useServices } from "@/hooks/useServices";
+import { useSellerReviews } from "@/hooks/useService";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -21,13 +20,24 @@ function StarRating({ rating }: { rating: number }) {
 export default function VendorProfile() {
   const { vendorSlug } = useParams<{ vendorSlug: string }>();
   const [reviewFilter, setReviewFilter] = useState<number | "all">("all");
+  const { services: allServices, loading } = useServices();
 
   const vendorServices = allServices.filter(
     (s) => s.seller.toLowerCase().replace(/[^a-z0-9]/g, "-") === vendorSlug
   );
   const vendor = vendorServices[0];
+  const { reviews: allVendorReviews } = useSellerReviews(vendor?.sellerId);
 
   usePageTitle(vendor ? `${vendor.seller} — Seller Profile` : "Vendor Profile");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
+        <div className="h-10 w-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">Loading profile…</p>
+      </div>
+    );
+  }
 
   if (!vendor) {
     return (
@@ -39,9 +49,9 @@ export default function VendorProfile() {
     );
   }
 
-  const allVendorReviews = MOCK_REVIEWS.filter((r) => vendorServices.some((s) => s.id === r.serviceId));
   const filteredReviews = reviewFilter === "all" ? allVendorReviews : allVendorReviews.filter((r) => Math.floor(r.rating) === reviewFilter);
-  const avgRating = vendorServices.reduce((a, s) => a + s.rating, 0) / vendorServices.length;
+  const rated = vendorServices.filter((s) => s.reviews > 0);
+  const avgRating = rated.length ? rated.reduce((a, s) => a + s.rating, 0) / rated.length : 0;
   const totalReviews = vendorServices.reduce((a, s) => a + s.reviews, 0);
   const whatsappMsg = encodeURIComponent(`Hi ${vendor.seller}, I found your profile on Needly and I'm interested in your services.`);
 

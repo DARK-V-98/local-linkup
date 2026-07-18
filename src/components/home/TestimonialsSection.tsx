@@ -1,63 +1,30 @@
 import { useState } from "react";
+import { useTopReviews, usePlatformStats } from "@/hooks/usePlatformStats";
+import { timeAgo } from "@/lib/format";
 
-const TESTIMONIALS = [
-  {
-    name: "Kamani Rathnayake",
-    role: "Buyer · Colombo",
-    avatar: "K",
-    color: "from-rose-500 to-pink-600",
-    rating: 5,
-    text: "Found a plumber within 20 minutes during a pipe burst emergency. The video verification gave me confidence before he even arrived. Incredible service.",
-    service: "Emergency Plumbing",
-  },
-  {
-    name: "Tharindu Perera",
-    role: "Seller · Kandy",
-    avatar: "T",
-    color: "from-violet-500 to-purple-600",
-    rating: 5,
-    text: "My income doubled in 3 months after joining Needlyy as a freelance graphic designer. The platform handles the trust side so I can focus on my craft.",
-    service: "Graphic Design",
-  },
-  {
-    name: "Dilshan Wickramasinghe",
-    role: "Buyer · Galle",
-    avatar: "D",
-    color: "from-sky-500 to-blue-600",
-    rating: 5,
-    text: "Posted a job request for website development and had 5 quotes within 2 hours. Hired someone that same day. Way easier than searching on Facebook groups.",
-    service: "Web Development",
-  },
-  {
-    name: "Nirmala Jayawardena",
-    role: "Buyer · Negombo",
-    avatar: "N",
-    color: "from-emerald-500 to-teal-600",
-    rating: 5,
-    text: "As a working mum, Needlyy saves me hours every week. I've found a reliable cleaner, AC technician, and tutor all in one place. The WhatsApp booking is seamless.",
-    service: "Multiple Services",
-  },
-  {
-    name: "Sumudu Fernando",
-    role: "Seller · Colombo",
-    avatar: "S",
-    color: "from-amber-500 to-orange-600",
-    rating: 5,
-    text: "I run a photography studio. Needlyy brings me 60% of my bookings now. The seller dashboard and earnings tracker make running the business so much cleaner.",
-    service: "Photography",
-  },
-  {
-    name: "Priya Srikanth",
-    role: "Overseas · Dubai",
-    avatar: "P",
-    color: "from-indigo-500 to-blue-600",
-    rating: 5,
-    text: "I'm based in Dubai and Needlyy's Overseas service manages my Colombo property. Monthly video reports straight to WhatsApp. Complete peace of mind from 4,000km away.",
-    service: "Overseas Property Care",
-  },
+const AVATAR_COLORS = [
+  "from-rose-500 to-pink-600",
+  "from-sky-500 to-blue-600",
+  "from-emerald-500 to-teal-600",
+  "from-violet-500 to-purple-600",
+  "from-amber-500 to-orange-600",
+  "from-cyan-500 to-teal-600",
 ];
 
-function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
+/** A review shaped for the testimonial card. */
+interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  color: string;
+  rating: number;
+  text: string;
+  service: string;
+}
+
+
+function TestimonialCard({ t }: { t: Testimonial }) {
   return (
     <div className="bg-card border border-border rounded-3xl p-6 flex flex-col gap-4 hover:-translate-y-0.5 hover:shadow-glass transition">
       <div className="flex gap-0.5">
@@ -88,6 +55,22 @@ function TestimonialCard({ t }: { t: typeof TESTIMONIALS[0] }) {
 
 export default function TestimonialsSection() {
   const [activeIdx, setActiveIdx] = useState(0);
+  const { reviews, loading } = useTopReviews(6);
+  const { averageRating, reviewCount } = usePlatformStats();
+
+  const testimonials: Testimonial[] = reviews.map((r, i) => ({
+    id: r.id,
+    name: r.author,
+    role: timeAgo(r.date),
+    avatar: r.initial,
+    color: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    rating: r.rating,
+    text: r.text,
+    service: "Verified booking",
+  }));
+
+  // No reviews yet — omit the section rather than invent social proof.
+  if (loading || testimonials.length === 0) return null;
 
   return (
     <section className="py-20 bg-gradient-to-b from-slate-50/50 to-background overflow-hidden">
@@ -97,7 +80,7 @@ export default function TestimonialsSection() {
             <i className="fas fa-star text-amber-400" /> Real stories from real users
           </span>
           <h2 className="mt-4 text-3xl md:text-5xl font-black tracking-tight">
-            Trusted by <span className="text-gradient-brand">18,000+</span> Sri Lankans
+            Trusted across <span className="text-gradient-brand">Sri Lanka</span>
           </h2>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
             From emergency repairs to growing freelance businesses — hear what our community says.
@@ -107,9 +90,8 @@ export default function TestimonialsSection() {
         {/* Stars summary bar */}
         <div className="flex flex-wrap justify-center gap-8 mb-14">
           {[
-            { label: "Average Rating", val: "4.9/5", icon: "fa-star", color: "text-amber-400" },
-            { label: "Reviews", val: "12,400+", icon: "fa-comment-dots", color: "text-primary" },
-            { label: "Repeat Buyers", val: "78%", icon: "fa-arrow-rotate-right", color: "text-emerald-500" },
+            { label: "Average Rating", val: `${averageRating.toFixed(1)}/5`, icon: "fa-star", color: "text-amber-400" },
+            { label: reviewCount === 1 ? "Review" : "Reviews", val: reviewCount.toLocaleString(), icon: "fa-comment-dots", color: "text-primary" },
           ].map((s) => (
             <div key={s.label} className="flex items-center gap-2.5">
               <i className={`fas ${s.icon} ${s.color} text-lg`} />
@@ -123,25 +105,25 @@ export default function TestimonialsSection() {
 
         {/* Desktop grid */}
         <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {TESTIMONIALS.map((t) => (
-            <TestimonialCard key={t.name} t={t} />
+          {testimonials.map((t) => (
+            <TestimonialCard key={t.id} t={t} />
           ))}
         </div>
 
         {/* Mobile carousel */}
         <div className="sm:hidden">
           <div className="overflow-hidden">
-            <TestimonialCard t={TESTIMONIALS[activeIdx]} />
+            <TestimonialCard t={testimonials[activeIdx]} />
           </div>
           <div className="flex justify-center items-center gap-3 mt-6">
             <button
-              onClick={() => setActiveIdx((i) => (i - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)}
+              onClick={() => setActiveIdx((i) => (i - 1 + testimonials.length) % testimonials.length)}
               className="w-8 h-8 rounded-full bg-foreground/5 hover:bg-foreground/10 grid place-items-center transition"
             >
               <i className="fas fa-chevron-left text-xs" />
             </button>
             <div className="flex gap-1.5">
-              {TESTIMONIALS.map((_, i) => (
+              {testimonials.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveIdx(i)}
@@ -150,7 +132,7 @@ export default function TestimonialsSection() {
               ))}
             </div>
             <button
-              onClick={() => setActiveIdx((i) => (i + 1) % TESTIMONIALS.length)}
+              onClick={() => setActiveIdx((i) => (i + 1) % testimonials.length)}
               className="w-8 h-8 rounded-full bg-foreground/5 hover:bg-foreground/10 grid place-items-center transition"
             >
               <i className="fas fa-chevron-right text-xs" />

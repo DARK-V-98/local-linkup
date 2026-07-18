@@ -1,37 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import PostComposer from "@/components/feed/PostComposer";
 import PostCard from "@/components/feed/PostCard";
-import { MOCK_FEED_POSTS, FeedPost } from "@/data/feed";
-import { MOCK_CATEGORIES } from "@/data/mock";
+import { useCategories } from "@/hooks/useCategories";
+import { useFeed } from "@/hooks/useFeed";
 import { usePageTitle } from "@/lib/usePageTitle";
 
-function getStoredPosts(): FeedPost[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
-    return raw.map((p: FeedPost & { postedAt: string }) => ({ ...p, postedAt: new Date(p.postedAt) }));
-  } catch { return []; }
-}
-
 export default function Feed() {
+  const { categories } = useCategories();
+  const { posts: allPosts, loading } = useFeed();
   usePageTitle("Service Feed");
   const [filter, setFilter] = useState<string>("All");
-  const [userPosts, setUserPosts] = useState<FeedPost[]>(getStoredPosts);
-
-  useEffect(() => {
-    const refresh = () => setUserPosts(getStoredPosts());
-    window.addEventListener("needly-feed-change", refresh);
-    return () => window.removeEventListener("needly-feed-change", refresh);
-  }, []);
-
-  const allPosts = useMemo(() => [...userPosts, ...MOCK_FEED_POSTS], [userPosts]);
 
   const posts = useMemo(() => {
     if (filter === "All") return allPosts;
     return allPosts.filter((p) => p.category === filter);
   }, [filter, allPosts]);
 
-  const filters = ["All", ...MOCK_CATEGORIES.slice(0, 6).map((c) => c.name)];
+  const filters = ["All", ...categories.slice(0, 6).map((c) => c.name)];
 
   return (
     <AppShell fullBleed>
@@ -96,10 +82,16 @@ export default function Feed() {
               </div>
             </div>
 
-            {posts.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-64 rounded-3xl bg-foreground/5 animate-pulse" />
+              ))
+            ) : posts.length === 0 ? (
               <div className="bg-card border border-border rounded-3xl p-10 text-center text-muted-foreground">
                 <i className="fas fa-inbox text-3xl mb-3 block" />
-                No posts in this category yet.
+                {filter === "All"
+                  ? "No posts yet — be the first to share something."
+                  : "No posts in this category yet."}
               </div>
             ) : (
               posts.map((p) => <PostCard key={p.id} post={p} />)

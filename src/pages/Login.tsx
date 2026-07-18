@@ -1,15 +1,12 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
-import {
-  DEMO_ACCOUNTS,
-  signInWithFirebase,
-  signInWithGoogle,
-} from "@/lib/auth";
+import { signInWithFirebase, signInWithGoogle } from "@/lib/auth";
 import { toast } from "sonner";
 import { usePageTitle } from "@/lib/usePageTitle";
 
 const ROLE_DEST: Record<string, string> = {
+  developer: "/admin",
   admin: "/admin",
   seller: "/dashboard/seller",
   buyer: "/dashboard/buyer",
@@ -45,8 +42,8 @@ export default function Login() {
         toast.error("Invalid email or password.");
       } else if (msg.includes("too-many-requests")) {
         toast.error("Too many attempts. Please try again later.");
-      } else if (msg.includes("not configured") || msg.includes("demo")) {
-        toast.error("Use a demo account: buyer@demo.com / demo123");
+      } else if (msg.includes("not configured")) {
+        toast.error("Sign-in is temporarily unavailable. Please try again later.");
       } else {
         toast.error(msg);
       }
@@ -90,31 +87,6 @@ export default function Login() {
         </>
       }
     >
-      {/* Demo accounts hint */}
-      <div className="mb-5 p-3.5 bg-primary/5 border border-primary/20 rounded-2xl text-xs">
-        <div className="font-black text-foreground mb-1.5 flex items-center gap-1.5">
-          <i className="fas fa-flask text-primary text-[10px]" /> Demo Accounts
-        </div>
-        <div className="space-y-1 text-muted-foreground">
-          {[
-            { label: "Buyer", email: "buyer@demo.com" },
-            { label: "Seller", email: "seller@demo.com" },
-            { label: "Admin", email: "admin@demo.com" },
-          ].map((a) => (
-            <button
-              key={a.email}
-              type="button"
-              onClick={() => { setEmail(a.email); setPassword("demo123"); }}
-              className="flex items-center gap-2 w-full text-left hover:text-primary transition"
-            >
-              <i className="fas fa-circle-right text-primary text-[10px]" />
-              <strong className="text-foreground">{a.label}:</strong>{" "}
-              {a.email} / demo123
-            </button>
-          ))}
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Email */}
         <div className="space-y-2">
