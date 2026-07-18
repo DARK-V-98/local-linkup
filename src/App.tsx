@@ -5,8 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { auth, isFirebaseConfigured } from "@/lib/firebase";
-import { getUser, setUser, clearUser, resolveRole } from "@/lib/auth";
-import { getUserProfile } from "@/lib/firestore/users";
+import { getUser, setUser, clearUser, ensureProfileForUser } from "@/lib/auth";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
 import CommandPalette from "@/components/CommandPalette";
@@ -66,10 +65,15 @@ function AuthStateWatcher() {
         if (firebaseUser) {
           const current = getUser();
           if (!current || current.id !== firebaseUser.uid) {
-            const profile = await getUserProfile(firebaseUser.uid);
-            if (profile) {
-              setUser({ ...profile, role: resolveRole(profile.email, profile.role) });
+            try {
+              // Creates the Firestore profile when absent, so it exists even if
+              // the user never passes through the login screen this session.
+              const profile = await ensureProfileForUser(firebaseUser);
+              setUser(profile);
               window.dispatchEvent(new Event("needly-auth-change"));
+            } catch {
+              // Offline — leave the cached session untouched rather than
+              // risk overwriting a profile we simply could not read.
             }
           }
         } else if (getUser()) {

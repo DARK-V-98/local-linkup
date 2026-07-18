@@ -5,6 +5,7 @@ import {
   updateDoc,
   collection,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -25,14 +26,65 @@ export interface UserProfile extends AuthUser {
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
 
+/**
+ * Reads a profile, returning null ONLY when the document genuinely does not
+ * exist. Network/permission failures throw.
+ *
+ * The distinction matters: callers create a profile when this returns null, so
+ * treating an error as "missing" would overwrite a real user's document and
+ * wipe their role and verification status.
+ */
+export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  const snap = await getDoc(doc(db, USERS_COL, uid));
+  if (!snap.exists()) return null;
+  return { id: uid, ...snap.data() } as UserProfile;
+}
+
+/**
+ * Lenient read for non-critical paths — swallows errors. Never use this to
+ * decide whether to create a profile; use fetchUserProfile for that.
+ */
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   try {
-    const snap = await getDoc(doc(db, USERS_COL, uid));
-    if (!snap.exists()) return null;
-    return { id: uid, ...snap.data() } as UserProfile;
+    return await fetchUserProfile(uid);
   } catch {
     return null;
   }
+}
+
+/**
+ * Guarantees a Firestore profile exists for a signed-in account, creating one
+ * from the given seed if it is missing. Runs in a transaction so two tabs
+ * signing in at once cannot clobber each other, and so an existing document is
+ * never overwritten.
+ *
+ * Throws if Firestore is unreachable — callers must not assume "missing".
+ */
+export async function ensureUserProfile(
+  uid: string,
+  seed: Omit<AuthUser, "id">
+): Promise<{ profile: UserProfile; created: boolean }> {
+  return runTransaction(db, async (tx) => {
+    const ref = doc(db, USERS_COL, uid);
+    const snap = await tx.get(ref);
+
+    if (snap.exists()) {
+      return {
+        profile: { id: uid, ...snap.data() } as UserProfile,
+        created: false,
+      };
+    }
+
+    const data = {
+      ...stripUndefined(seed),
+      totalOrders: 0,
+      totalEarnings: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    tx.set(ref, data);
+    return { profile: { id: uid, ...seed } as UserProfile, created: true };
+  });
 }
 
 // ── Writes ─────────────────────────────────────────────────────────────────────

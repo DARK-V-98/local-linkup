@@ -83,7 +83,11 @@ export function genUserId(): string {
 // These functions are tree-shaken if Firebase is not configured.
 
 import { isFirebaseConfigured, auth } from "@/lib/firebase";
-import { getUserProfile, createUserProfile, updateUserProfile } from "@/lib/firestore/users";
+import {
+  createUserProfile,
+  updateUserProfile,
+  ensureUserProfile,
+} from "@/lib/firestore/users";
 
 export async function signInWithFirebase(
   email: string,
@@ -96,30 +100,56 @@ export async function signInWithFirebase(
   const { signInWithEmailAndPassword } = await import("firebase/auth");
   const cred = await signInWithEmailAndPassword(auth, email, password);
 
-  const profile = await getUserProfile(cred.user.uid);
-  if (profile) {
-    // The owner email is promoted on every sign-in, so developer access
-    // survives even if the stored profile says otherwise.
-    const promoted = await ensureDeveloperRole(profile);
-    setUser(promoted);
-    return promoted;
+  // Backfills the Firestore profile if it is missing, and applies the
+  // owner-email promotion when it already exists.
+  const profile = await ensureProfileForUser(cred.user, email);
+  setUser(profile);
+  return profile;
+}
+
+/**
+ * Guarantees the signed-in account has a Firestore profile and returns it.
+ *
+ * Every sign-in path funnels through here, so a user whose document is missing
+ * — created before profiles were written, removed by hand, or lost to a failed
+ * registration — is backfilled on their next login instead of staying
+ * invisible to the admin screens.
+ *
+ * Defaults are deliberately conservative: role "buyer" and unverified. A
+ * backfilled profile must never grant privileges the user did not already have.
+ */
+export async function ensureProfileForUser(
+  firebaseUser: {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    phoneNumber: string | null;
+    photoURL: string | null;
+    emailVerified: boolean;
+  },
+  fallbackEmail = ""
+): Promise<AuthUser> {
+  const email = firebaseUser.email ?? fallbackEmail;
+
+  const seed: Omit<AuthUser, "id"> = {
+    name: firebaseUser.displayName ?? email.split("@")[0] ?? "User",
+    email,
+    phone: firebaseUser.phoneNumber ?? "",
+    role: resolveRole(email, "buyer"),
+    district: "Colombo",
+    verified: false,
+    joinedAt: new Date().toISOString().split("T")[0],
+    ...(firebaseUser.photoURL ? { avatarUrl: firebaseUser.photoURL } : {}),
+  };
+
+  const { profile, created } = await ensureUserProfile(firebaseUser.uid, seed);
+  if (created) {
+    console.info(`[auth] Backfilled missing Firestore profile for ${email}`);
+    return profile as AuthUser;
   }
 
-  // Profile missing — create a minimal one from Firebase Auth
-  const resolvedEmail = cred.user.email ?? email;
-  const minimal: AuthUser = {
-    id: cred.user.uid,
-    name: cred.user.displayName ?? email.split("@")[0],
-    email: resolvedEmail,
-    phone: cred.user.phoneNumber ?? "",
-    role: resolveRole(resolvedEmail, "buyer"),
-    district: "Colombo",
-    verified: cred.user.emailVerified,
-    joinedAt: new Date().toISOString().split("T")[0],
-  };
-  await createUserProfile(cred.user.uid, minimal);
-  setUser(minimal);
-  return minimal;
+  // Existing profile — only the owner-email promotion may change it.
+  return ensureDeveloperRole(profile as AuthUser);
 }
 
 /**
@@ -261,25 +291,10 @@ export async function signInWithGoogle(): Promise<AuthUser> {
   provider.addScope("email");
 
   const cred = await signInWithPopup(auth, provider);
-  let profile = await getUserProfile(cred.user.uid);
 
-  if (!profile) {
-    const userData: Omit<AuthUser, "id"> = {
-      name: cred.user.displayName ?? cred.user.email?.split("@")[0] ?? "User",
-      email: cred.user.email ?? "",
-      phone: cred.user.phoneNumber ?? "",
-      role: resolveRole(cred.user.email ?? "", "buyer"),
-      district: "Colombo",
-      verified: cred.user.emailVerified,
-      joinedAt: new Date().toISOString().split("T")[0],
-      avatarUrl: cred.user.photoURL ?? undefined,
-    };
-    await createUserProfile(cred.user.uid, userData);
-    profile = { id: cred.user.uid, ...userData };
-  } else {
-    profile = await ensureDeveloperRole(profile);
-  }
-
+  // Same guarantee as email sign-in: a Google account always ends up with a
+  // Firestore profile, created on first sign-in and backfilled if it went missing.
+  const profile = await ensureProfileForUser(cred.user);
   setUser(profile);
   return profile;
 }
