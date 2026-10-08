@@ -51,6 +51,8 @@ const BuyerSettings = lazy(() => import("./pages/dashboard/buyer/BuyerSettings.t
 const BuyerPayments = lazy(() => import("./pages/dashboard/buyer/BuyerPayments.tsx"));
 const SavedSellers = lazy(() => import("./pages/dashboard/buyer/SavedSellers.tsx"));
 const SellerInbox = lazy(() => import("./pages/dashboard/seller/SellerInbox.tsx"));
+const AdminReports = lazy(() => import("./pages/admin/Reports.tsx"));
+const SellerAnalytics = lazy(() => import("./pages/admin/Reports.tsx").then(module => ({ default: module.SellerAnalytics })));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 
@@ -142,6 +144,9 @@ const App = () => (
               <Route path="/dashboard/buyer/payments" element={buyer(<BuyerPayments />)} />
               <Route path="/dashboard/buyer/saved" element={buyer(<SavedSellers />)} />
               <Route path="/dashboard/seller/inbox" element={seller(<SellerInbox />)} />
+              <Route path="/dashboard/buyer/inbox" element={buyer(<SellerInbox perspective="buyer" />)} />
+              <Route path="/admin/reports" element={admin(<AdminReports />)} />
+              <Route path="/dashboard/seller/analytics" element={seller(<SellerAnalytics />)} />
               <Route path="/role-selection" element={<RoleSelection />} />
               <Route path="/register/buyer" element={<RegisterBuyer />} />
               <Route path="/register/seller" element={<RegisterSeller />} />

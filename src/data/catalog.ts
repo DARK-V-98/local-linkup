@@ -8,6 +8,7 @@ export interface ServiceListing {
   sellerVerified?: boolean; sellerMember?: string; sellerJobs?: number;
   sellerBio?: string; sellerPhone?: string;
   sellerId?: string;
+  imageUrl?: string;
 }
 
 export const SL_DISTRICTS = [
@@ -23,4 +24,3 @@ export const SL_DISTRICTS = [
   "Ratnapura", "Kegalle",
   "Online",
 ];
-

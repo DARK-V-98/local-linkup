@@ -98,7 +98,8 @@ export async function getBookingsBySeller(
 
 export function subscribeToBookingsByBuyer(
   buyerId: string,
-  callback: (bookings: FirestoreBooking[]) => void
+  callback: (bookings: FirestoreBooking[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
   const q = query(
     collection(db, BOOKINGS_COL),
@@ -107,12 +108,13 @@ export function subscribeToBookingsByBuyer(
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking)));
-  });
+  }, onError);
 }
 
 export function subscribeToBookingsBySeller(
   sellerId: string,
-  callback: (bookings: FirestoreBooking[]) => void
+  callback: (bookings: FirestoreBooking[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
   const q = query(
     collection(db, BOOKINGS_COL),
@@ -121,7 +123,7 @@ export function subscribeToBookingsBySeller(
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking)));
-  });
+  }, onError);
 }
 
 /**

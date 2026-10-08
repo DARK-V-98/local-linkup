@@ -20,12 +20,16 @@ type Booking = FirestoreBooking | StoredBooking;
  * - Uses Firestore when Firebase is configured
  * - Falls back to localStorage otherwise
  */
-export function useBookings() {
+export function useBookings(perspective?: "buyer" | "seller") {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const user = getUser();
 
   useEffect(() => {
+    setBookings([]);
+    setError(null);
+    setLoading(true);
     if (!user) {
       setBookings([]);
       setLoading(false);
@@ -36,23 +40,34 @@ export function useBookings() {
       // localStorage fallback
       setBookings(getBookings());
       setLoading(false);
-      return;
+      const refresh = () => setBookings(getBookings());
+      window.addEventListener("needly-bookings-change", refresh);
+      return () => window.removeEventListener("needly-bookings-change", refresh);
     }
 
     let unsub: () => void;
-    if (user.role === "seller") {
-      unsub = subscribeToBookingsBySeller(user.id, (data) => {
-        setBookings(data);
-        setLoading(false);
-      });
+    const timer = window.setTimeout(() => {
+      setError("Booking updates are taking longer than expected. Please check your connection.");
+      setLoading(false);
+    }, 8000);
+    const receive = (data: FirestoreBooking[]) => {
+      window.clearTimeout(timer);
+      setBookings(data);
+      setError(null);
+      setLoading(false);
+    };
+    const fail = () => {
+      window.clearTimeout(timer);
+      setError("Could not load your bookings. Please check your connection or permissions.");
+      setLoading(false);
+    };
+    if ((perspective ?? user.role) === "seller") {
+      unsub = subscribeToBookingsBySeller(user.id, receive, fail);
     } else {
-      unsub = subscribeToBookingsByBuyer(user.id, (data) => {
-        setBookings(data);
-        setLoading(false);
-      });
+      unsub = subscribeToBookingsByBuyer(user.id, receive, fail);
     }
-    return () => unsub?.();
-  }, [user?.id, user?.role]);
+    return () => { window.clearTimeout(timer); unsub?.(); };
+  }, [user?.id, user?.role, perspective]);
 
   const updateStatus = useCallback(
     async (id: string, status: StoredBooking["status"], note?: string) => {
@@ -66,5 +81,5 @@ export function useBookings() {
     []
   );
 
-  return { bookings, loading, updateStatus };
+  return { bookings, loading, error, updateStatus };
 }

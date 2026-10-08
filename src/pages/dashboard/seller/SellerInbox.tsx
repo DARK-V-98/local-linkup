@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { ArrowLeft, Send, Search, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -49,16 +51,16 @@ interface UIConversation {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function fsToUI(c: FSConversation, meRole: "seller"): UIConversation {
+function fsToUI(c: FSConversation, meRole: "seller" | "buyer"): UIConversation {
   return {
     id: c.id,
-    buyerName: c.buyerName,
-    buyerInitial: c.buyerInitial,
+    buyerName: meRole === "buyer" ? c.sellerName : c.buyerName,
+    buyerInitial: meRole === "buyer" ? c.sellerInitial : c.buyerInitial,
     serviceName: c.serviceName,
     lastMessage: c.lastMessage,
     lastAt: c.lastAt?.toDate?.() ?? new Date(),
-    unread: c.unreadSeller ?? 0,
-    online: c.buyerOnline ?? false,
+    unread: (meRole === "buyer" ? c.unreadBuyer : c.unreadSeller) ?? 0,
+    online: (meRole === "buyer" ? c.sellerOnline : c.buyerOnline) ?? false,
   };
 }
 
@@ -74,7 +76,7 @@ function fsMsgToUI(m: FSMessage, userId: string): UIMessage {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function SellerInbox() {
+export default function SellerInbox({ perspective = "seller" }: { perspective?: "buyer" | "seller" }) {
   usePageTitle("Inbox");
   const user = getUser();
   const usingFirebase = isFirebaseConfigured && Boolean(user);
@@ -103,11 +105,11 @@ export default function SellerInbox() {
   useEffect(() => {
     if (!usingFirebase || !user) return;
     const unsub = subscribeToConversations(user.id, (fsConvos) => {
-      setConversations(fsConvos.map((c) => fsToUI(c, "seller")));
+      setConversations(fsConvos.map((c) => fsToUI(c, perspective)));
       setLoadingConvos(false);
     });
     return unsub;
-  }, [usingFirebase, user?.id]);
+  }, [usingFirebase, user?.id, perspective]);
 
   // ── Firebase: subscribe to active conversation messages ──────────────────────
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function SellerInbox() {
 
       if (usingFirebase) {
         setMessages([]);
-        await markMessagesRead(id, "seller");
+        await markMessagesRead(id, perspective);
         setConversations((prev) =>
           prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c))
         );
@@ -148,7 +150,7 @@ export default function SellerInbox() {
         );
       }
     },
-    [usingFirebase]
+    [usingFirebase, perspective]
   );
 
   // ── Send message ──────────────────────────────────────────────────────────────
@@ -161,10 +163,11 @@ export default function SellerInbox() {
       setSending(true);
       setDraft("");
 
+      try {
       if (usingFirebase && user) {
         await fsSendMessage(activeId, {
           senderId: user.id,
-          from: "seller",
+          from: perspective,
           text,
           read: false,
         });
@@ -186,9 +189,14 @@ export default function SellerInbox() {
           )
         );
       }
-      setSending(false);
+      } catch {
+        setDraft(text);
+        toast.error("Message could not be sent. Your draft is saved — please try again.");
+      } finally {
+        setSending(false);
+      }
     },
-    [draft, activeId, usingFirebase, user?.id, sending]
+    [draft, activeId, usingFirebase, user?.id, sending, perspective]
   );
 
   // ── Derived ────────────────────────────────────────────────────────────────────
@@ -228,10 +236,10 @@ export default function SellerInbox() {
       <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-soft overflow-hidden">
         <div className="flex h-[calc(100vh-280px)] min-h-[520px]">
           {/* ── Conversation list ─────────────────────────── */}
-          <div className="w-full md:w-80 lg:w-96 border-r border-slate-100 flex flex-col shrink-0">
+          <div className={`w-full md:w-72 lg:w-80 border-r border-slate-100 flex-col shrink-0 ${activeConvo ? "hidden md:flex" : "flex"}`}>
             <div className="p-4 border-b border-slate-100">
               <div className="relative">
-                <i className="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -304,9 +312,10 @@ export default function SellerInbox() {
 
           {/* ── Message thread ────────────────────────────── */}
           {activeConvo ? (
-            <div className="flex-1 flex flex-col min-w-0 hidden md:flex">
+            <div className="flex-1 flex flex-col min-w-0">
               {/* Thread header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 shrink-0">
+                <button className="md:hidden min-w-11 min-h-11 grid place-items-center text-slate-500" aria-label="Back to conversations" onClick={() => { setActiveId(null); setMessages([]); }}><ArrowLeft size={20} /></button>
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-gradient-brand grid place-items-center text-primary-foreground font-bold">
                     {activeConvo.buyerInitial}
@@ -352,7 +361,7 @@ export default function SellerInbox() {
                     <span className="text-[11px] font-semibold text-slate-400">No phone shared</span>
                   )}
                   <Link
-                    to="/dashboard/seller/orders"
+                    to={`/dashboard/${perspective}/orders`}
                     className="w-9 h-9 rounded-full bg-primary/10 hover:bg-primary/20 grid place-items-center text-primary transition"
                     title="View order"
                   >
@@ -411,24 +420,19 @@ export default function SellerInbox() {
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="Type a message…"
-                    className="flex-1 bg-transparent text-sm focus:outline-none py-1 text-slate-800 placeholder:text-slate-400"
+                    aria-label="Message text"
+                    className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none py-1 text-slate-800 placeholder:text-slate-400"
                   />
                   <div className="flex items-center gap-1 shrink-0">
                     <button
-                      type="button"
-                      className="w-8 h-8 rounded-xl hover:bg-slate-200 grid place-items-center text-slate-400 transition"
-                      title="Attach file"
-                    >
-                      <i className="fas fa-paperclip text-sm" />
-                    </button>
-                    <button
                       type="submit"
+                      aria-label="Send message"
                       disabled={!draft.trim() || sending}
-                      className="w-9 h-9 rounded-xl bg-gradient-brand text-primary-foreground grid place-items-center shadow-glow hover:scale-105 transition disabled:opacity-40 disabled:scale-100"
+                      className="w-11 h-11 rounded-xl bg-gradient-brand text-primary-foreground grid place-items-center shadow-glow hover:scale-105 transition disabled:opacity-40 disabled:scale-100"
                     >
                       {sending
-                        ? <i className="fas fa-spinner fa-spin text-xs" />
-                        : <i className="fas fa-paper-plane text-sm" />}
+                        ? <LoaderCircle size={17} className="animate-spin" />
+                        : <Send size={17} />}
                     </button>
                   </div>
                 </form>
@@ -441,7 +445,7 @@ export default function SellerInbox() {
               </div>
               <h3 className="text-xl font-black text-slate-800">Select a conversation</h3>
               <p className="text-slate-500 text-sm max-w-xs">
-                Choose a conversation from the left to start messaging with buyers.
+                Choose a conversation to start messaging with your {perspective === "buyer" ? "professionals" : "clients"}.
               </p>
             </div>
           )}

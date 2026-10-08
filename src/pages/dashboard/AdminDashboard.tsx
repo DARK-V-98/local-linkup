@@ -1,215 +1,55 @@
-﻿import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ShoppingBag, Users, Wallet, ShieldCheck, ArrowUpRight, Layers, Tags, CircleAlert, FileBarChart, Store, Settings } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { usePageTitle } from "@/lib/usePageTitle";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { DashboardHeading, Metric, Panel, EmptyState, BookingRows, QuickActions, LoadingState } from "@/components/dashboard/WorkspaceWidgets";
 import { useAllBookings } from "@/hooks/useAllBookings";
+import { useAllUsers } from "@/hooks/useAllUsers";
+import { useCategories } from "@/hooks/useCategories";
+import { useServices } from "@/hooks/useServices";
+import { subscribeToDisputes, type FSDispute } from "@/lib/firestore/disputes";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { buildBookingTrend } from "@/lib/dashboard";
 import { formatPrice } from "@/lib/format";
-
-const adminSidebarItems = [
-  { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
-  { label: "Orders", to: "/admin/orders", icon: "fa-cart-flatbed" },
-  { label: "Payments", to: "/admin/payments", icon: "fa-money-bill-wave" },
-  { label: "Verifications", to: "/admin/verifications", icon: "fa-user-check" },
-  { label: "User Management", to: "/admin/users", icon: "fa-users" },
-  { label: "Sellers", to: "/admin/sellers", icon: "fa-store" },
-  { label: "Service Catalog", to: "/admin/services", icon: "fa-layer-group" },
-  { label: "Categories", to: "/admin/categories", icon: "fa-tags" },
-  { label: "Disputes", to: "/admin/disputes", icon: "fa-circle-exclamation" },
-  { label: "System Settings", to: "/admin/settings", icon: "fa-gears" },
-];
-
-const data = [
-  { name: 'Mon', revenue: 4000, users: 240 },
-  { name: 'Tue', revenue: 3000, users: 139 },
-  { name: 'Wed', revenue: 2000, users: 980 },
-  { name: 'Thu', revenue: 2780, users: 390 },
-  { name: 'Fri', revenue: 1890, users: 480 },
-  { name: 'Sat', revenue: 2390, users: 380 },
-  { name: 'Sun', revenue: 3490, users: 430 },
-];
+import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function AdminDashboard() {
-  usePageTitle("Admin Dashboard");
-  const [activeTab, setActiveTab] = useState("revenue");
-  const { bookings } = useAllBookings();
-
-
-  const stats = useMemo(() => {
-    const completed = bookings.filter((b) => b.status === "completed");
-    const gmv = completed.reduce((s, b) => s + b.price, 0);
-    const fee = completed.reduce((s, b) => s + Math.round(b.price * 0.1), 0);
-    return {
-      revenue: fee,
-      gmv,
-      activeOrders: bookings.filter((b) => ["pending", "confirmed", "in_progress"].includes(b.status)).length,
-      pending: bookings.filter((b) => b.status === "pending").length,
-    };
-  }, [bookings]);
-
-  // Build weekly revenue chart from real bookings
-  const weeklyData = useMemo(() => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const now = Date.now();
-    const totals = Array(7).fill(0);
-    bookings.filter((b) => b.status === "completed" && now - new Date(b.createdAt).getTime() < 7 * 86_400_000)
-      .forEach((b) => { totals[new Date(b.createdAt).getDay()] += Math.round(b.price * 0.1); });
-    return days.map((name, i) => ({ name, revenue: totals[i] || Math.floor(Math.random() * 3000 + 1000) }));
-  }, [bookings]);
-
-  return (
-    <DashboardShell role="System Admin" sidebarItems={adminSidebarItems}>
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">System Overview</h1>
-          <p className="text-slate-500 font-medium">Welcome back, Admin. Here's what's happening today.</p>
-        </div>
-        <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl">
-          {["revenue", "users", "orders"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition ${activeTab === tab ? "bg-white text-slate-900 shadow-soft" : "text-slate-400 hover:text-slate-600"}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        {[
-          { label: "Platform Revenue", val: formatPrice(stats.revenue), icon: "fa-money-bill-trend-up", color: "text-emerald-600", bg: "bg-emerald-50", trend: "+12.5%" },
-          { label: "Active Orders", val: stats.activeOrders, icon: "fa-cart-shopping", color: "text-blue-600", bg: "bg-blue-50", trend: "+8.2%" },
-          { label: "Pending Orders", val: stats.pending, icon: "fa-clock", color: "text-amber-600", bg: "bg-amber-50", trend: "" },
-          { label: "Total Bookings", val: bookings.length, icon: "fa-calendar-check", color: "text-violet-600", bg: "bg-violet-50", trend: "" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-soft hover:shadow-glow transition-all">
-            <div className="flex items-center justify-between mb-4">
-               <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl grid place-items-center`}>
-                 <i className={`fas ${stat.icon} text-lg`} />
-               </div>
-               {stat.trend && (
-                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${stat.trend.startsWith('+') ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
-                    {stat.trend}
-                 </span>
-               )}
-            </div>
-            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
-            <div className="text-2xl font-black text-slate-900 mt-1">{stat.val}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Advanced Chart Area */}
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft mb-10">
-        <h3 className="font-black text-xl text-slate-900 mb-8">Performance Analytics</h3>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={weeklyData}>
-              <defs>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#94a3b8'}} dy={10} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600, fill: '#94a3b8'}} />
-              <Tooltip 
-                contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
-                itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-              />
-              <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Quick links to new admin sections */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
-        {[
-          { label: "All Orders", to: "/admin/orders", icon: "fa-cart-flatbed", color: "bg-blue-50 text-blue-600", count: bookings.length },
-          { label: "Payments", to: "/admin/payments", icon: "fa-money-bill-wave", color: "bg-emerald-50 text-emerald-600", count: formatPrice(stats.revenue) },
-          { label: "Sellers", to: "/admin/sellers", icon: "fa-store", color: "bg-violet-50 text-violet-600", count: "7 registered" },
-          { label: "Categories", to: "/admin/categories", icon: "fa-tags", color: "bg-amber-50 text-amber-600", count: "15 active" },
-        ].map((q) => (
-          <Link key={q.label} to={q.to} className={`${q.color} rounded-2xl p-4 flex items-center gap-3 hover:scale-105 transition-all border border-current/10`}>
-            <i className={`fas ${q.icon} text-xl`} />
-            <div>
-              <div className="font-black text-sm">{q.label}</div>
-              <div className="text-[11px] font-semibold opacity-70">{q.count}</div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Verification Queue */}
-        <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-200 shadow-soft overflow-hidden">
-          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-black text-xl text-slate-900">Verification Queue</h3>
-            <Link to="/admin/verifications" className="text-sm font-bold text-primary hover:underline">View All</Link>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {[
-              { name: "Tharindu Perera", type: "Individual", city: "Colombo", date: "2 mins ago" },
-              { name: "Lanka Homes (Pvt) Ltd", type: "Business", city: "Kandy", date: "15 mins ago" },
-              { name: "Kasun Jayasuriya", type: "Individual", city: "Galle", date: "1 hour ago" },
-              { name: "Eco Cleaners", type: "Business", city: "Negombo", date: "3 hours ago" },
-            ].map((req) => (
-              <div key={req.name} className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 grid place-items-center font-bold text-slate-500">
-                    {req.name[0]}
-                  </div>
-                  <div>
-                    <div className="font-bold text-slate-900">{req.name}</div>
-                    <div className="text-xs text-slate-400 font-semibold">{req.type} · {req.city}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition grid place-items-center" title="Approve">
-                    <i className="fas fa-check text-xs" />
-                  </button>
-                  <button className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition grid place-items-center" title="Reject">
-                    <i className="fas fa-xmark text-xs" />
-                  </button>
-                  <div className="w-px h-6 bg-slate-100 mx-1" />
-                  <Link to="/admin/verifications" className="bg-slate-900 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-800 transition">Review</Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft p-8">
-          <h3 className="font-black text-xl text-slate-900 mb-6">Recent Activity</h3>
-          <div className="space-y-6">
-            {[
-              { icon: "fa-check", color: "text-emerald-500", text: "Order #4122 marked as completed.", time: "5m ago" },
-              { icon: "fa-circle-exclamation", color: "text-rose-500", text: "New dispute raised by Buyer #882.", time: "12m ago" },
-              { icon: "fa-user-plus", color: "text-blue-500", text: "New user registered as Buyer.", time: "45m ago" },
-              { icon: "fa-star", color: "text-amber-500", text: "Seller 'Amila' reached Level 2.", time: "1h ago" },
-            ].map((activity, i) => (
-              <div key={i} className="flex gap-4">
-                <div className={`mt-1 ${activity.color}`}>
-                  <i className={`fas ${activity.icon} text-sm`} />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-slate-700">{activity.text}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{activity.time}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <Link to="/admin/settings" className="w-full mt-10 py-3 rounded-2xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition flex items-center justify-center gap-2">
-            <i className="fas fa-terminal text-xs" /> View System Logs
-          </Link>
-        </div>
-      </div>
-    </DashboardShell>
-  );
+  usePageTitle("Admin console");
+  const { bookings, loading, error } = useAllBookings();
+  const { users, loading: usersLoading, error: usersError } = useAllUsers();
+  const { categories } = useCategories();
+  const { services, loading: servicesLoading } = useServices();
+  const [disputes, setDisputes] = useState<FSDispute[]>([]);
+  const [disputeUnavailable, setDisputeUnavailable] = useState(false);
+  const [period, setPeriod] = useState<7|30>(7);
+  const [chart, setChart] = useState<"amount"|"orders">("amount");
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    return subscribeToDisputes(setDisputes,()=>setDisputeUnavailable(true));
+  }, []);
+  const sellers = users.filter(u=>u.role==="seller");
+  const verify = sellers.filter(u=>!u.verified && u.status!=="suspended");
+  const pending = bookings.filter(b=>b.status==="pending");
+  const active = bookings.filter(b=>["pending","confirmed","in_progress"].includes(b.status));
+  const completed = bookings.filter(b=>b.status==="completed");
+  const gmv = completed.reduce((sum,b)=>sum+b.price,0);
+  const openDisputes = disputes.filter(d=>["open","investigating"].includes(d.status));
+  const trend = useMemo(()=>buildBookingTrend(bookings,period),[bookings,period]);
+  return <DashboardShell>
+    <DashboardHeading eyebrow="THE MARKETPLACE AT A GLANCE" title="Keep good work moving." description="Your operations, people, and priorities — together in one place." action={<Link to="/admin/reports" className="workspace-primary-button"><FileBarChart size={17} />Open reports</Link>} />
+    {error && <div className="dashboard-data-warning" role="alert">{error}</div>}
+    {usersError && <div className="dashboard-data-warning" role="alert">User data could not be loaded. Check your connection or permissions in User Management.</div>}
+    <div className="dashboard-metrics"><Metric label="Completed booking value" value={loading ? "—" : formatPrice(gmv)} detail="Gross value of completed bookings" Icon={Wallet} to="/admin/payments" /><Metric label="Active orders" value={loading ? "—" : active.length} detail={`${pending.length} awaiting confirmation`} Icon={ShoppingBag} to="/admin/orders" tone="blue" /><Metric label="Registered users" value={usersLoading || usersError ? "—" : users.length} detail={`${sellers.length} seller accounts`} Icon={Users} to="/admin/users" /><Metric label="Verification queue" value={usersLoading || usersError ? "—" : verify.length} detail="Seller profiles awaiting review" Icon={ShieldCheck} to="/admin/verifications" tone="blue" /></div>
+    <QuickActions actions={[{title:"Review verifications",description:"Help new professionals get started",to:"/admin/verifications",Icon:ShieldCheck},{title:"Resolve disputes",description:disputeUnavailable ? "Open the dispute centre" : `${openDisputes.length} open or under investigation`,to:"/admin/disputes",Icon:CircleAlert},{title:"Marketplace settings",description:"Manage how the platform works",to:"/admin/settings",Icon:Settings}]} />
+    <div className="dashboard-columns"><div className="dashboard-column">
+      <Panel title="Marketplace activity" subtitle="Bookings grouped by creation date."><div className="chart-toolbar"><div className="period-switch"><button className={chart==="amount"?"active":""} aria-pressed={chart==="amount"} onClick={()=>setChart("amount")}>Booking value</button><button className={chart==="orders"?"active":""} aria-pressed={chart==="orders"} onClick={()=>setChart("orders")}>Orders</button></div><div className="period-switch">{([7,30] as const).map(p=><button key={p} aria-pressed={period===p} className={period===p?"active":""} onClick={()=>setPeriod(p)}>{p} days</button>)}</div></div><div className="workspace-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={trend}><defs><linearGradient id="admin-value-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#199b53" stopOpacity={.2} /><stop offset="100%" stopColor="#199b53" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#edf1ee" /><XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={24} tick={{fontSize:10,fill:"#839087"}} /><YAxis axisLine={false} tickLine={false} width={44} allowDecimals={chart!=="orders"} tick={{fontSize:10,fill:"#839087"}} /><Tooltip formatter={(v:number)=>chart==="amount"?formatPrice(v):v} /><Area type="monotone" dataKey={chart} name={chart==="amount"?"Completed booking value":"Orders"} stroke="#199b53" strokeWidth={2} fill="url(#admin-value-fill)" /></AreaChart></ResponsiveContainer></div>{!loading && trend.every(d=>d[chart]===0) && <p className="chart-note">No {chart==="amount"?"completed booking value":"bookings"} in this period.</p>}</Panel>
+      <Panel title="Latest orders" subtitle="Follow the work happening across the marketplace." to="/admin/orders">{loading ? <LoadingState /> : bookings.length ? <BookingRows perspective="admin" bookings={bookings.slice(0,5)} to="/admin/orders" /> : <EmptyState title="A clear view from the very first booking" body="Marketplace orders will appear here as customers make bookings." />}</Panel>
+      <Panel title="Marketplace management" subtitle="Keep your catalog useful, current, and easy to find."><div className="management-grid">{[{title:"Service catalog",value:servicesLoading?"—":services.length,detail:"Loaded active listings",to:"/admin/services",Icon:Layers},{title:"Categories",value:categories.length,detail:"Active discovery categories",to:"/admin/categories",Icon:Tags},{title:"Seller accounts",value:usersLoading?"—":sellers.length,detail:"Registered professionals",to:"/admin/sellers",Icon:Store},{title:"User management",value:usersLoading?"—":users.length,detail:"Buyers, sellers, and team",to:"/admin/users",Icon:Users}].map(item=><Link key={item.title} to={item.to}><item.Icon size={22} /><strong>{item.value}</strong><h3>{item.title}</h3><p>{item.detail}</p><ArrowUpRight size={15} /></Link>)}</div></Panel>
+    </div><div className="dashboard-column">
+      <Panel title="Needs your attention" subtitle="The next steps for your operations team."><div className="attention-queue">{[{title:"Pending orders",value:pending.length,to:"/admin/orders",Icon:ShoppingBag},{title:"Unverified sellers",value:usersLoading?"—":verify.length,to:"/admin/verifications",Icon:ShieldCheck},{title:"Open disputes",value:disputeUnavailable?"—":openDisputes.length,to:"/admin/disputes",Icon:CircleAlert}].map(q=><Link key={q.title} to={q.to}><q.Icon size={20} /><span>{q.title}</span><strong>{q.value}</strong><ArrowUpRight size={15} /></Link>)}</div></Panel>
+      <Panel title="Verification shortlist" to="/admin/verifications" action="Review">{usersLoading ? <LoadingState /> : verify.length ? <div className="conversation-preview">{verify.slice(0,4).map(u=><Link key={u.id} to="/admin/verifications"><span className="small-avatar">{u.name.charAt(0)}</span><div><strong>{u.businessName || u.name}</strong><span>{u.district} · {u.sellerType || "Individual"}</span></div><ArrowUpRight size={15} /></Link>)}</div> : <EmptyState title={usersError?"Queue unavailable":"No profiles waiting"} body={usersError?"Open verifications to check access to seller profiles.":"New unverified seller accounts will appear here for review."} />}</Panel>
+      <section className="workspace-tip"><FileBarChart size={23} /><div><h3>Turn activity into insight</h3><p>Filter by period and order status, compare service categories, and export your booking report.</p><Link to="/admin/reports">Explore reports <ArrowUpRight size={14} /></Link></div></section>
+    </div></div>
+  </DashboardShell>;
 }

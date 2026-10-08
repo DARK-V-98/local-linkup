@@ -53,6 +53,7 @@ export function useService(id: string | undefined) {
               description: local.description,
               tags: local.tags,
               priceUnit: local.priceUnit,
+              imageUrl: local.imageUrl,
             }
           : null
       );
@@ -148,5 +149,6 @@ function toServiceListing(s: FirestoreService): ServiceListing {
     sellerMember: s.sellerMember,
     sellerJobs: s.sellerJobs,
     sellerId: s.sellerId,
+    imageUrl: s.imageUrl,
   };
 }

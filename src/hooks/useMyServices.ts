@@ -25,10 +25,11 @@ import { tsToIso } from "@/lib/firestore/normalize";
 export function useMyServices() {
   const [services, setServices] = useState<StoredService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const user = getUser();
 
   useEffect(() => {
-    if (!user || user.role !== "seller") {
+    if (!user) {
       setServices([]);
       setLoading(false);
       return;
@@ -40,11 +41,14 @@ export function useMyServices() {
       return;
     }
 
+    const timer = window.setTimeout(() => { setError("Your services are taking longer than expected. Check your connection."); setLoading(false); }, 8000);
     const unsub = subscribeToMyServices(user.id, (data) => {
+      window.clearTimeout(timer);
+      setError(null);
       setServices(data.map((s) => ({ ...s, createdAt: tsToIso(s.createdAt) })));
       setLoading(false);
-    });
-    return unsub;
+    }, () => { window.clearTimeout(timer); setError("Could not load your services. Please check your connection."); setLoading(false); });
+    return () => { window.clearTimeout(timer); unsub(); };
   }, [user?.id]);
 
   const add = useCallback(
@@ -89,5 +93,5 @@ export function useMyServices() {
     }
   }, []);
 
-  return { services, loading, add, update, remove };
+  return { services, loading, error, add, update, remove };
 }

@@ -28,6 +28,7 @@ export interface StatusEvent {
 }
 
 export interface StoredService {
+  imageUrl?: string;
   id: string;
   title: string;
   category: string;

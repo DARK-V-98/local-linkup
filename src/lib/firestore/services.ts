@@ -161,7 +161,8 @@ export async function incrementServiceViews(id: string): Promise<void> {
 
 export function subscribeToMyServices(
   sellerId: string,
-  callback: (services: FirestoreService[]) => void
+  callback: (services: FirestoreService[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
   const q = query(
     collection(db, SERVICES_COL),
@@ -170,7 +171,7 @@ export function subscribeToMyServices(
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService)));
-  });
+  }, onError);
 }
 
 export function subscribeToServices(

@@ -4,6 +4,9 @@ import { getUser, clearUser, AuthUser } from "@/lib/auth";
 import { getLang, setLang, LANG_LABELS, Lang } from "@/lib/lang";
 import { getNotifications, AppNotification } from "@/components/NotificationsDropdown";
 import MobileNav from "@/components/layout/MobileNav";
+import { Home, Compass, Plus, Globe, Newspaper, Info, Headphones, TriangleAlert, LayoutDashboard, ShoppingBag, Heart, Briefcase, Inbox, UserCheck, Users, Menu, Search, Bell, ChevronsRight, ChevronsLeft } from "lucide-react";
+
+const NAV_ICONS = { "fa-house": Home, "fa-compass": Compass, "fa-plus": Plus, "fa-globe": Globe, "fa-newspaper": Newspaper, "fa-circle-info": Info, "fa-headset": Headphones, "fa-triangle-exclamation": TriangleAlert, "fa-gauge-high": LayoutDashboard, "fa-bag-shopping": ShoppingBag, "fa-heart": Heart, "fa-briefcase": Briefcase, "fa-inbox": Inbox, "fa-user-check": UserCheck, "fa-users": Users };
 
 /* ── Sidebar navigation model ─────────────────────────────────────────── */
 
@@ -29,6 +32,7 @@ const SECONDARY_NAV: NavItem[] = [
 ];
 
 const ROLE_DASHBOARD: Record<string, string> = {
+  developer: "/admin",
   buyer: "/dashboard/buyer",
   seller: "/dashboard/seller",
   admin: "/admin",
@@ -84,6 +88,7 @@ function SidebarLink({
   const { pathname } = useLocation();
   const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
   const danger = item.accent === "danger";
+  const Icon = NAV_ICONS[item.icon as keyof typeof NAV_ICONS] ?? Compass;
   return (
     <Link
       to={item.to}
@@ -99,7 +104,7 @@ function SidebarLink({
             : "text-slate-400 hover:bg-white/5 hover:text-white"
       }`}
     >
-      <i className={`fas ${item.icon} w-5 text-center text-[15px]`} />
+      <Icon size={19} strokeWidth={1.8} className="shrink-0" />
       {!collapsed && item.label}
     </Link>
   );
@@ -322,7 +327,7 @@ export default function AppShell({
   const year = new Date().getFullYear();
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
+    <div className="app-frame min-h-screen bg-slate-100 flex">
       {/* Mobile drawer overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 lg:hidden" onClick={closeSidebar} />
@@ -331,7 +336,7 @@ export default function AppShell({
       {/* Drawer sidebar (mobile) */}
       <aside
         className={`fixed inset-y-0 left-0 w-72 bg-slate-900 z-50 transition-transform duration-300 lg:hidden ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          sidebarOpen ? "translate-x-0 visible" : "-translate-x-full invisible"
         }`}
       >
         {renderSidebar(false)}
@@ -355,7 +360,7 @@ export default function AppShell({
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
           >
-            <i className="fas fa-bars" />
+            <Menu size={20} />
           </button>
 
           {/* Desktop collapse toggle */}
@@ -365,12 +370,13 @@ export default function AppShell({
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <i className={`fas ${collapsed ? "fa-angles-right" : "fa-angles-left"} text-sm`} />
+            {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
           </button>
 
-          <form onSubmit={submitSearch} className="flex-1 max-w-md min-w-0">
+          <Link to="/" className={`items-center gap-2 text-lg font-bold tracking-tight text-slate-900 ${pathname === "/" ? "flex sm:hidden" : "hidden"}`}><span className="grid place-items-center w-8 h-8 rounded-lg bg-primary text-white text-base">N</span>Needlyy</Link>
+          <form onSubmit={submitSearch} className={`flex-1 max-w-md min-w-0 ${pathname === "/" ? "hidden sm:block" : ""}`}>
             <div className="flex items-center gap-2 px-4 h-10 bg-slate-100 border border-transparent focus-within:border-primary focus-within:bg-white rounded-full transition min-w-0">
-              <i className="fas fa-magnifying-glass text-slate-400 text-sm shrink-0" />
+              <Search size={18} className="text-slate-400 shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -426,7 +432,7 @@ export default function AppShell({
                 className="relative w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 grid place-items-center transition"
                 aria-label="Notifications"
               >
-                <i className="fas fa-bell text-slate-600 text-sm" />
+                <Bell size={18} className="text-slate-600" />
                 {unread > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[9px] font-black rounded-full grid place-items-center px-1 border-2 border-white">
                     {unread > 9 ? "9+" : unread}
@@ -434,7 +440,7 @@ export default function AppShell({
                 )}
               </button>
               {showNotifs && (
-                <div className="absolute right-0 top-full mt-3 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-3 w-80 max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                     <span className="font-black text-slate-900 text-sm">Notifications</span>
                     {unread > 0 && (
@@ -549,7 +555,7 @@ export default function AppShell({
         </main>
 
         {/* In-app footer (desktop/tablet — mobile uses bottom nav) */}
-        <footer className="hidden md:flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 md:px-8 py-4">
+        <footer className="hidden lg:flex items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 md:px-8 py-4">
           <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold">
             <span className="w-6 h-6 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground font-black text-[11px]">
               N

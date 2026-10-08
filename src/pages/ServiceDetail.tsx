@@ -1,3 +1,4 @@
+import ServiceImage from "@/components/ServiceImage";
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
@@ -201,8 +202,7 @@ export default function ServiceDetail() {
             {/* Service header card */}
             <div className="bg-card border border-border rounded-3xl overflow-hidden">
               <div className="relative h-52 md:h-72 bg-slate-100 flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10" />
-                <i className={`fas ${service.categoryIcon} text-[9rem] text-slate-200`} />
+                <ServiceImage imageUrl={service.imageUrl} category={service.category} />
                 {service.badge && (
                   <span className="absolute top-4 left-4 inline-flex items-center gap-1.5 bg-slate-900/90 text-white px-3 py-1.5 rounded-full text-xs font-bold">
                     <i className={`${service.badgeIcon} text-amber-400`} /> {service.badge}

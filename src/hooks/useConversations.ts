@@ -17,12 +17,13 @@ import { getUser } from "@/lib/auth";
  * - Falls back to empty state when Firebase is not configured (SellerInbox
  *   renders its own mock data in that case)
  */
-export function useConversations() {
+export function useConversations(perspective?: "buyer" | "seller") {
   const [conversations, setConversations] = useState<FSConversation[]>([]);
   const [messages, setMessages] = useState<FSMessage[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const user = getUser();
+  const role = perspective ?? (user?.role === "seller" ? "seller" : "buyer");
 
   // ── Subscribe to conversation list ────────────────────────────────────────
   useEffect(() => {
@@ -53,11 +54,10 @@ export function useConversations() {
       setActiveId(id);
       setMessages([]);
       if (isFirebaseConfigured && user) {
-        const role = user.role === "seller" ? "seller" : "buyer";
         await markMessagesRead(id, role);
       }
     },
-    [user?.role]
+    [user?.id, role]
   );
 
   const sendMessage = useCallback(
@@ -66,7 +66,6 @@ export function useConversations() {
 
       if (!isFirebaseConfigured) return; // handled in SellerInbox via mock
 
-      const role = user.role === "seller" ? "seller" : "buyer";
       await fsSendMessage(activeId, {
         senderId: user.id,
         from: role,
@@ -74,13 +73,13 @@ export function useConversations() {
         read: false,
       });
     },
-    [activeId, user?.id, user?.role]
+    [activeId, user?.id, role]
   );
 
   const activeConversation = conversations.find((c) => c.id === activeId);
   const totalUnread = conversations.reduce(
     (n, c) =>
-      n + (user?.role === "seller" ? c.unreadSeller : c.unreadBuyer),
+      n + (role === "seller" ? c.unreadSeller : c.unreadBuyer),
     0
   );
 

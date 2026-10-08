@@ -8,6 +8,7 @@ import { formatPrice, timeAgo } from "@/lib/format";
 import { getSaved, toggleSaved } from "@/lib/saved";
 import { useCategories } from "@/hooks/useCategories";
 import { useServices } from "@/hooks/useServices";
+import ServiceImage from "@/components/ServiceImage";
 
 const ITEMS_PER_PAGE = 9;
 const SERVICE_TYPES = ["All Types", "Fixed Price", "Hourly Service", "Booking Service", "Local Service", "Online Service"];
@@ -284,8 +285,7 @@ export default function Browse() {
                   className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all"
                 >
                   <div className="relative h-40 bg-slate-100 overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-100" />
-                    <i className={`fas ${s.categoryIcon} text-slate-200 text-[8rem] absolute -bottom-6 -right-4 group-hover:scale-110 transition`} />
+                    <ServiceImage imageUrl={s.imageUrl} category={s.category} />
                     <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-white/95 px-3 py-1 rounded-full text-[11px] font-bold text-foreground">
                       {s.category}
                     </div>

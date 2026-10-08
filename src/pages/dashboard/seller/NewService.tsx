@@ -1,3 +1,4 @@
+import ServiceImage from "@/components/ServiceImage";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
@@ -33,6 +34,7 @@ export default function NewService() {
   const [categoryIcon, setCategoryIcon] = useState("fa-star");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [price, setPrice] = useState("");
@@ -62,6 +64,11 @@ export default function NewService() {
       return;
     }
     setSaving(true);
+    if (imageUrl.trim() && !/^https:\/\/[^\s]+$/i.test(imageUrl.trim())) {
+      toast.error("Please use a valid HTTPS image link.");
+      setSaving(false);
+      return;
+    }
     const user = getUser();
     const serviceId = generateId("SVC");
     const serviceData = {
@@ -70,6 +77,7 @@ export default function NewService() {
       category,
       categoryIcon: `fas ${categoryIcon}`,
       description: description.trim(),
+      imageUrl: imageUrl.trim(),
       price: Number(price),
       priceUnit,
       type,
@@ -93,7 +101,6 @@ export default function NewService() {
           sellerPhone: user.phone ?? "",
           sellerVerified: user.verified ?? false,
           badge: user.verified ? "verified" : undefined,
-          imageUrl: "",
           reviewCount: 0,
           sellerDistrict: user.district ?? district,
         });
@@ -209,6 +216,10 @@ export default function NewService() {
               </div>
 
               <div>
+                <label htmlFor="service-image" className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">Service image (optional)</label>
+                <input id="service-image" type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://example.com/your-work.jpg" className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-primary" />
+                <p className="text-xs text-slate-500 mb-4">Add a link to a photo of your work. It appears on your listing on phones and computers.</p>
+                {imageUrl.trim() && <div className="h-40 rounded-xl overflow-hidden mb-6"><ServiceImage imageUrl={imageUrl.trim()} category={category} /></div>}
                 <label className="text-xs font-bold text-slate-500 mb-2 block uppercase tracking-wide">Tags (optional, max 8)</label>
                 <div className="flex gap-2 mb-3">
                   <input
@@ -307,7 +318,7 @@ export default function NewService() {
 
               <div className="border-2 border-primary/20 rounded-3xl overflow-hidden mb-6">
                 <div className="relative h-36 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center overflow-hidden">
-                  <i className={`fas ${categoryIcon} text-[6rem] text-slate-200`} />
+                  <ServiceImage imageUrl={imageUrl.trim()} category={category} />
                   <span className="absolute top-3 left-3 bg-white/95 text-foreground text-xs font-bold px-3 py-1 rounded-full">{category}</span>
                 </div>
                 <div className="p-5">

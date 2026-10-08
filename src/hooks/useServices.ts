@@ -41,6 +41,7 @@ export function useServices(pageSize = 200) {
             description: s.description,
             tags: s.tags,
             priceUnit: s.priceUnit,
+            imageUrl: s.imageUrl,
           }))
       );
       setLoading(false);
@@ -105,6 +106,7 @@ function toServiceListing(s: FirestoreService): ServiceListing {
     sellerMember: s.sellerMember,
     sellerJobs: s.sellerJobs,
     sellerId: s.sellerId,
+    imageUrl: s.imageUrl,
   };
 }
 

@@ -48,7 +48,9 @@ export function useSaved() {
       if (user && isFirebaseConfigured) {
         return await toggleFirestoreSaved(user.id, serviceId);
       } else {
-        return toggleLocalSaved(serviceId);
+      const saved = toggleLocalSaved(serviceId);
+      setSavedIds(new Set(getSaved()));
+      return saved;
       }
     },
     [user?.id]

@@ -11,6 +11,7 @@ import { tsToIso } from "@/lib/firestore/normalize";
 export function useAllBookings() {
   const [bookings, setBookings] = useState<StoredBooking[]>([]);
   const [loading, setLoading] = useState(isFirebaseConfigured);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -23,17 +24,19 @@ export function useAllBookings() {
 
     let settled = false;
     const fallbackTimer = window.setTimeout(() => {
-      if (!settled) setLoading(false);
+      if (!settled) { setError("Booking data is taking longer than expected. Check your connection."); setLoading(false); }
     }, 5000);
 
     const unsub = subscribeToAllBookings(
       (docs) => {
         settled = true;
+        setError(null);
         setBookings(docs.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }) as StoredBooking));
         setLoading(false);
       },
       () => {
         settled = true;
+        setError("Could not load marketplace bookings. Check your connection or permissions.");
         setLoading(false);
       }
     );
@@ -44,5 +47,5 @@ export function useAllBookings() {
     };
   }, []);
 
-  return { bookings, loading };
+  return { bookings, loading, error };
 }

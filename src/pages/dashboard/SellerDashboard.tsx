@@ -1,222 +1,46 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { ShoppingBag, Wallet, Briefcase, MessageSquare, Plus, BarChart3, ArrowUpRight, Check, Circle, Image, FileText } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import { DashboardHeading, Metric, Panel, EmptyState, BookingRows, QuickActions, LoadingState, StatusBadge } from "@/components/dashboard/WorkspaceWidgets";
+import { useBookings } from "@/hooks/useBookings";
+import { useMyServices } from "@/hooks/useMyServices";
+import { useConversations } from "@/hooks/useConversations";
+import { getUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/format";
+import { buildBookingTrend, bookingDate } from "@/lib/dashboard";
 import { usePageTitle } from "@/lib/usePageTitle";
-import { getBookings, getMyServices } from "@/lib/store";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-
-const sellerSidebarItems = [
-  { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
-  { label: "My Services", to: "/dashboard/seller/services", icon: "fa-briefcase" },
-  { label: "Orders", to: "/dashboard/seller/orders", icon: "fa-cart-flatbed" },
-  { label: "Earnings", to: "/dashboard/seller/earnings", icon: "fa-wallet" },
-  { label: "Settings", to: "/dashboard/seller/settings", icon: "fa-user-gear" },
-];
-
-function buildEarningsChart(days: number) {
-  const now = new Date();
-  const labels = Array.from({ length: days }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (days - 1 - i));
-    return days <= 7
-      ? d.toLocaleDateString("en-US", { weekday: "short" })
-      : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  });
-  const bookings = getBookings();
-  return labels.map((label, i) => {
-    const d = new Date(now);
-    d.setDate(d.getDate() - (days - 1 - i));
-    const dayStr = d.toISOString().split("T")[0];
-    const amount = bookings
-      .filter((b) => b.status === "completed" && b.createdAt.startsWith(dayStr))
-      .reduce((sum, b) => sum + b.price, 0);
-    return { label, amount };
-  });
-}
 
 export default function SellerDashboard() {
-  usePageTitle("Seller Dashboard");
+  usePageTitle("Seller studio");
+  const user = getUser();
+  const { bookings, loading, error } = useBookings("seller");
+  const { services, loading: servicesLoading, error: servicesError } = useMyServices();
+  const { conversations, totalUnread } = useConversations("seller");
   const [period, setPeriod] = useState<7 | 30>(7);
-  const [earningsData, setEarningsData] = useState(() => buildEarningsChart(7));
-  const [bookings, setBookings] = useState(() => getBookings());
-  const [myServices, setMyServices] = useState(() => getMyServices());
-
-  useEffect(() => {
-    setEarningsData(buildEarningsChart(period));
-    setBookings(getBookings());
-    setMyServices(getMyServices());
-  }, [period]);
-
-  const activeOrders = bookings.filter((b) => b.status === "pending" || b.status === "in_progress" || b.status === "confirmed").length;
-  const netEarnings = bookings.filter((b) => b.status === "completed").reduce((s, b) => s + b.price, 0);
-  const recentOrders = bookings.slice(0, 3);
-
-  return (
-    <DashboardShell role="Verified Seller" sidebarItems={sellerSidebarItems}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Seller Dashboard</h1>
-          <p className="text-slate-500 font-medium">Keep it up! Your response rate is 98% this week.</p>
-        </div>
-        <Link to="/dashboard/seller/new-service" className="bg-gradient-brand text-primary-foreground px-6 py-3 rounded-2xl font-bold shadow-glow hover:scale-105 transition flex items-center gap-2">
-          <i className="fas fa-plus" /> Create New Service
-        </Link>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        {[
-          { label: "Active Orders", val: activeOrders.toString(), icon: "fa-clock-rotate-left", color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Net Earnings", val: netEarnings > 0 ? formatPrice(netEarnings) : "Rs. 0", icon: "fa-wallet", color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "My Services", val: myServices.length.toString(), icon: "fa-briefcase", color: "text-amber-600", bg: "bg-amber-50" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft flex items-center gap-6">
-            <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl grid place-items-center shrink-0`}>
-              <i className={`fas ${stat.icon} text-xl`} />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
-              <div className="text-2xl font-black text-slate-900">{stat.val}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Advanced Earnings Chart */}
-      <div className="grid lg:grid-cols-3 gap-8 mb-10">
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft">
-           <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-xl text-slate-900">Earnings Trends</h3>
-              <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-                {([7, 30] as const).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setPeriod(d)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition ${period === d ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
-                  >
-                    {d === 7 ? "7 Days" : "30 Days"}
-                  </button>
-                ))}
-              </div>
-           </div>
-           {earningsData.every((d) => d.amount === 0) && (
-             <p className="text-xs text-slate-400 text-center mb-4">No completed bookings yet — data will appear here once orders are marked complete.</p>
-           )}
-           <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={earningsData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 600, fill: '#94a3b8'}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 600, fill: '#94a3b8'}} />
-                    <Tooltip
-                       cursor={{fill: 'transparent'}}
-                       contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={32}>
-                       {earningsData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.amount > 0 ? 'hsl(var(--primary))' : '#e2e8f0'} />
-                       ))}
-                    </Bar>
-                 </BarChart>
-              </ResponsiveContainer>
-           </div>
-        </div>
-
-        {/* Recent Inquiries */}
-        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-soft">
-           <h3 className="font-black text-xl text-slate-900 mb-6">Recent Inquiries</h3>
-           <div className="space-y-4">
-              {[
-                { name: "Priyanka S.", msg: "Hi, can you deliver the logo files in SVG format?", time: "2m ago", unread: true },
-                { name: "Asanka K.", msg: "Is the AC servicing available this weekend?", time: "1h ago", unread: false },
-                { name: "Malith D.", msg: "Thanks for the quick response! I'll proceed.", time: "3h ago", unread: false },
-              ].map((chat, i) => (
-                <div key={i} className={`p-4 rounded-2xl border transition cursor-pointer ${chat.unread ? "bg-primary/5 border-primary/20" : "bg-white border-slate-50 hover:border-slate-200"}`}>
-                   <div className="flex items-center justify-between mb-1">
-                      <div className="text-sm font-black text-slate-900">{chat.name}</div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase">{chat.time}</div>
-                   </div>
-                   <p className="text-xs text-slate-500 line-clamp-1">{chat.msg}</p>
-                </div>
-              ))}
-           </div>
-           <Link to="/dashboard/seller/inbox" className="w-full mt-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-800 transition">
-              <i className="fas fa-inbox" /> Open Inbox
-           </Link>
-        </div>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Recent Orders */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft overflow-hidden">
-          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="font-black text-xl text-slate-900">Recent Orders</h3>
-            <Link to="/dashboard/seller/orders" className="text-sm font-bold text-primary hover:underline">Manage All</Link>
-          </div>
-          <div className="divide-y divide-slate-50">
-             {recentOrders.length === 0 ? (
-               <div className="p-8 text-center text-slate-400 text-sm">No orders yet. Share your services to start receiving bookings.</div>
-             ) : recentOrders.map((order) => {
-               const statusColors: Record<string, string> = {
-                 pending: "text-amber-500 bg-amber-50",
-                 confirmed: "text-blue-500 bg-blue-50",
-                 in_progress: "text-violet-500 bg-violet-50",
-                 completed: "text-emerald-500 bg-emerald-50",
-                 cancelled: "text-red-500 bg-red-50",
-               };
-               return (
-                 <div key={order.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 grid place-items-center">
-                         <i className="fas fa-file-invoice text-slate-400" />
-                      </div>
-                      <div>
-                         <div className="font-bold text-slate-900 line-clamp-1">{order.serviceTitle}</div>
-                         <div className="text-xs text-slate-400 font-semibold">by {order.customerName} · {order.id}</div>
-                      </div>
-                   </div>
-                   <div className="text-right shrink-0">
-                      <div className="font-black text-slate-900">{formatPrice(order.price)}</div>
-                      <div className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md mt-1 inline-block ${statusColors[order.status] ?? "text-slate-500 bg-slate-100"}`}>{order.status.replace("_", " ")}</div>
-                   </div>
-                 </div>
-               );
-             })}
-          </div>
-        </div>
-
-        {/* My Services Quick View */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-soft p-8">
-          <h3 className="font-black text-xl text-slate-900 mb-6">Service Performance</h3>
-          <div className="space-y-5">
-             {myServices.length === 0 ? (
-               <p className="text-sm text-slate-400 text-center py-4">Create services to see performance data here.</p>
-             ) : myServices.slice(0, 3).map((s) => {
-               const conv = s.views > 0 ? ((s.orders / s.views) * 100).toFixed(1) + "%" : "0%";
-               return (
-                 <div key={s.id} className="p-5 border border-slate-100 rounded-2xl">
-                    <div className="font-bold text-slate-900 mb-3 line-clamp-1">{s.title}</div>
-                    <div className="grid grid-cols-3 gap-4">
-                       <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Views</div>
-                          <div className="text-sm font-black text-slate-700">{s.views}</div>
-                       </div>
-                       <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Orders</div>
-                          <div className="text-sm font-black text-slate-700">{s.orders}</div>
-                       </div>
-                       <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase">Conv.</div>
-                          <div className="text-sm font-black text-primary">{conv}</div>
-                       </div>
-                    </div>
-                 </div>
-               );
-             })}
-          </div>
-        </div>
-      </div>
-    </DashboardShell>
-  );
+  const active = bookings.filter(b => ["pending","confirmed","in_progress"].includes(b.status));
+  const completed = bookings.filter(b => b.status === "completed");
+  const pending = bookings.filter(b => b.status === "pending");
+  const gross = completed.reduce((sum,b) => sum + b.price,0);
+  const trend = useMemo(() => buildBookingTrend(bookings.map(b => ({...b,createdAt:bookingDate(b.createdAt)?.toISOString() ?? ""})),period),[bookings,period]);
+  const checks = [{label:"Add your phone number",done:!!user?.phone,to:"/dashboard/seller/settings"},{label:"Tell clients about your skills",done:!!user?.bio,to:"/dashboard/seller/settings"},{label:"Publish your first service",done:services.some(s => s.status === "active"),to:"/dashboard/seller/new-service"},{label:"Add a photo of your work",done:services.some(s => !!s.imageUrl),to:"/dashboard/seller/services"}];
+  const complete = checks.filter(c=>c.done).length;
+  return <DashboardShell>
+    <DashboardHeading eyebrow="YOUR BUSINESS, IN FOCUS" title={`Let’s get to work${user?.name ? `, ${user.name.split(" ")[0]}` : ""}.`} description="A clear picture of your orders, services, and next opportunities." action={<Link className="workspace-primary-button" to="/dashboard/seller/new-service"><Plus size={17} />Create a service</Link>} />
+    {(error || servicesError) && <div className="dashboard-data-warning" role="alert">{error || servicesError}</div>}
+    <div className="dashboard-metrics"><Metric label="Active orders" value={loading ? "—" : active.length} detail={`${pending.length} awaiting confirmation`} Icon={ShoppingBag} to="/dashboard/seller/orders" tone="blue" /><Metric label="Completed booking value" value={loading ? "—" : formatPrice(gross)} detail="Gross value before fees" Icon={Wallet} to="/dashboard/seller/earnings" /><Metric label="Published services" value={servicesLoading ? "—" : services.filter(s=>s.status==="active").length} detail={`${services.filter(s=>s.status==="draft").length} drafts ready to finish`} Icon={Briefcase} to="/dashboard/seller/services" /><Metric label="Unread messages" value={totalUnread} detail="Your next conversation awaits" Icon={MessageSquare} to="/dashboard/seller/inbox" tone="blue" /></div>
+    {pending.length > 0 && <Link className="dashboard-attention" to="/dashboard/seller/orders"><ShoppingBag size={20} /><span><strong>{pending.length} order{pending.length===1?" needs":"s need"} your attention</strong>Review the details and confirm your availability.</span><ArrowUpRight size={18} /></Link>}
+    <QuickActions actions={[{title:"Manage your services",description:"Keep your storefront current",to:"/dashboard/seller/services",Icon:Briefcase},{title:"Open your inbox",description:"Turn conversations into connections",to:"/dashboard/seller/inbox",Icon:MessageSquare},{title:"Business analytics",description:"See where your work is growing",to:"/dashboard/seller/analytics",Icon:BarChart3}]} />
+    <div className="dashboard-columns"><div className="dashboard-column">
+      <Panel title="Booking value over time" subtitle="Completed bookings, grouped by creation date."><div className="chart-toolbar"><strong>{formatPrice(trend.reduce((sum,d)=>sum+d.amount,0))}</strong><div className="period-switch">{([7,30] as const).map(p=><button key={p} aria-pressed={period===p} onClick={()=>setPeriod(p)} className={period===p?"active":""}>{p} days</button>)}</div></div><div className="workspace-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={trend}><CartesianGrid vertical={false} stroke="#edf1ee" /><XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} tick={{fontSize:10,fill:"#839087"}} /><YAxis tickLine={false} axisLine={false} width={44} tick={{fontSize:10,fill:"#839087"}} /><Tooltip formatter={(value:number)=>formatPrice(value)} /><Bar dataKey="amount" name="Completed booking value" fill="#199b53" radius={[5,5,0,0]} maxBarSize={32} /></BarChart></ResponsiveContainer></div>{!loading && trend.every(d=>d.amount===0) && <p className="chart-note">No completed booking value in this period.</p>}</Panel>
+      <Panel title="Orders on your radar" subtitle="Your latest active jobs." to="/dashboard/seller/orders">{loading ? <LoadingState /> : active.length ? <BookingRows perspective="seller" bookings={active.slice(0,5)} to="/dashboard/seller/orders" /> : <EmptyState title="Ready for your next client" body="New orders will appear here. Make sure your services are published and your profile is up to date." to="/dashboard/seller/services" action="Manage services" />}</Panel>
+      <Panel title="Your storefront" subtitle="Small updates make a stronger first impression." to="/dashboard/seller/services">{servicesLoading ? <LoadingState /> : services.length ? <div className="storefront-list">{services.slice(0,4).map(s=><Link key={s.id} to="/dashboard/seller/services"><span className="storefront-icon">{s.imageUrl ? <Image size={20} /> : <FileText size={20} />}</span><div><strong>{s.title}</strong><span>{formatPrice(s.price)} · {s.district}</span></div><StatusBadge status={s.status} /></Link>)}</div> : <EmptyState title="Give your skills a home" body="Create a service so clients can discover what you do best." to="/dashboard/seller/new-service" action="Create your first service" />}</Panel>
+    </div><div className="dashboard-column">
+      <Panel title="Make a strong first impression" subtitle={`${complete} of ${checks.length} essentials complete`}><div className="profile-progress"><span style={{width:`${complete/checks.length*100}%`}} /></div><div className="setup-checklist">{checks.map(c=><Link key={c.label} to={c.to}>{c.done ? <Check size={18} className="text-primary" /> : <Circle size={18} />}<span>{c.label}</span><ArrowUpRight size={14} /></Link>)}</div></Panel>
+      <Panel title="Recent conversations" to="/dashboard/seller/inbox" action="Inbox">{conversations.length ? <div className="conversation-preview">{conversations.slice(0,4).map(c=><Link key={c.id} to="/dashboard/seller/inbox"><span className="small-avatar">{c.buyerInitial}</span><div><strong>{c.buyerName}</strong><span>{c.lastMessage || c.serviceName}</span></div>{c.unreadSeller>0 && <b>{c.unreadSeller}</b>}</Link>)}</div> : <EmptyState title="Every job starts with a conversation" body="Client messages appear here as people reach out about your services." to="/dashboard/seller/inbox" action="Open inbox" />}</Panel>
+      <section className="workspace-tip"><BarChart3 size={24} /><div><h3>Know what’s working</h3><p>Compare bookings by category and district, then export a report for your records.</p><Link to="/dashboard/seller/analytics">View analytics <ArrowRightIcon /></Link></div></section>
+    </div></div>
+  </DashboardShell>;
 }
+function ArrowRightIcon() { return <ArrowUpRight size={14} />; }

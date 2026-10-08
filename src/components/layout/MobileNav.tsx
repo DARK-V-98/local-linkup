@@ -1,56 +1,13 @@
-import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getNotifications } from "@/components/NotificationsDropdown";
-
+import { Home, Compass, Plus, TriangleAlert, UserRound } from "lucide-react";
+import { getUser } from "@/lib/auth";
 export default function MobileNav() {
   const { pathname } = useLocation();
-  const [unread, setUnread] = useState(0);
-
-  const refreshUnread = () => {
-    const notifs = getNotifications();
-    setUnread(notifs.filter((n) => !n.read).length);
-  };
-
-  useEffect(() => {
-    refreshUnread();
-    window.addEventListener("needly-notifications-change", refreshUnread);
-    return () => window.removeEventListener("needly-notifications-change", refreshUnread);
-  }, []);
-
-  return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-xl border-t border-border">
-      <div className="grid grid-cols-5 items-center h-16 px-2">
-        {[
-          { to: "/", icon: "fa-house", label: "Home" },
-          { to: "/browse", icon: "fa-magnifying-glass", label: "Browse" },
-        ].map((i) => (
-          <Link key={i.label} to={i.to} className={`flex flex-col items-center gap-1 text-xs font-semibold ${pathname === i.to ? "text-primary" : "text-muted-foreground"}`}>
-            <i className={`fas ${i.icon} text-base`} />
-            {i.label}
-          </Link>
-        ))}
-
-        <Link to="/post-request" className="-mt-8 mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-gradient-brand text-primary-foreground shadow-glow">
-          <i className="fas fa-plus text-xl" />
-        </Link>
-
-        <Link to="/emergency" className="flex flex-col items-center gap-1 text-xs font-semibold text-red-500">
-          <i className="fas fa-triangle-exclamation text-base" />
-          Emergency
-        </Link>
-
-        <Link to="/login" className={`relative flex flex-col items-center gap-1 text-xs font-semibold ${pathname === "/login" ? "text-primary" : "text-muted-foreground"}`}>
-          <span className="relative">
-            <i className="fas fa-user text-base" />
-            {unread > 0 && (
-              <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5">
-                {unread > 9 ? "9+" : unread}
-              </span>
-            )}
-          </span>
-          Profile
-        </Link>
-      </div>
-    </nav>
-  );
+  const user = getUser();
+  const profile = user ? ["admin", "developer"].includes(user.role) ? "/admin" : `/dashboard/${user.role}` : "/login";
+  return <nav aria-label="Mobile navigation" className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-border" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div className="grid grid-cols-5 items-center h-[72px] px-2">
+      {[{to:"/", Icon:Home, label:"Home"}, {to:"/browse", Icon:Compass, label:"Explore"}, {to:"/post-request", Icon:Plus, label:"Request"}, {to:"/emergency", Icon:TriangleAlert, label:"Emergency"}, {to:profile, Icon:UserRound, label:"You"}].map(({to, Icon, label}) => {const active = to === "/" ? pathname === "/" : pathname.startsWith(to); return <Link key={label} to={to} aria-current={active ? "page" : undefined} className={`flex flex-col items-center justify-center gap-1.5 min-h-12 text-[10px] font-semibold ${active ? "text-primary" : "text-slate-500"}`}><span className={`grid place-items-center w-11 h-7 rounded-lg ${label === "Request" ? "bg-primary text-white" : active ? "bg-emerald-50" : ""}`}><Icon size={20} strokeWidth={1.8} /></span>{label}</Link>;})}
+    </div>
+  </nav>;
 }

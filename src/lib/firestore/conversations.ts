@@ -119,7 +119,8 @@ export async function updateOnlineStatus(
 
 export function subscribeToConversations(
   userId: string,
-  callback: (convos: FSConversation[]) => void
+  callback: (convos: FSConversation[]) => void,
+  onError?: (error: unknown) => void
 ): () => void {
   const q = query(
     collection(db, CONVERSATIONS_COL),
@@ -128,7 +129,7 @@ export function subscribeToConversations(
   );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSConversation)));
-  });
+  }, onError);
 }
 
 // ── Messages ──────────────────────────────────────────────────────────────────
