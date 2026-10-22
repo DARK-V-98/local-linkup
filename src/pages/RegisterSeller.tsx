@@ -129,13 +129,13 @@ export default function RegisterSeller() {
         {step === 1 && (
           <>
             <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Full name" name="name" defaultValue={step1Data.name} placeholder="Saman Perera" icon="fa-user" required />
-              <Field label="Phone" name="phone" defaultValue={step1Data.phone} placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
+              <Field label="Full name" name="name" autoComplete="name" defaultValue={step1Data.name} placeholder="Saman Perera" icon="fa-user" required />
+              <Field label="Phone" name="phone" autoComplete="tel" defaultValue={step1Data.phone} placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
             </div>
-            <Field label="Email" name="email" defaultValue={step1Data.email} placeholder="you@example.com" icon="fa-envelope" type="email" required />
+            <Field label="Email" name="email" autoComplete="email" defaultValue={step1Data.email} placeholder="you@example.com" icon="fa-envelope" type="email" required />
             <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Password" name="password" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
-              <Field label="Confirm password" name="confirm" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
+              <Field label="Password" name="password" autoComplete="new-password" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
+              <Field label="Confirm password" name="confirm" autoComplete="new-password" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
             </div>
           </>
         )}

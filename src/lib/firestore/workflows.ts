@@ -1,5 +1,5 @@
 import { getUser } from "@/lib/auth";
-import { db, isFirebaseConfigured, storage } from "@/lib/firebase";
+import { auth, db, isFirebaseConfigured, storage } from "@/lib/firebase";
 import { validateUpload } from "@/lib/validation";
 import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -56,10 +56,19 @@ export async function submitVerification(data: FormData, details: Record<string,
     if (files.length < 2)
         throw new Error("Upload at least the two required identity documents.");
     files.forEach(({ file }) => validateUpload(file));
+    if (auth.currentUser?.uid !== user.id)
+        throw new Error("Your sign-in session changed. Sign in again before uploading documents.");
     const documents = [];
     for (const { key, file } of files) {
         const path = `verifications/${user.id}/${crypto.randomUUID()}-${key}`;
-        await uploadBytes(ref(storage, path), file, { contentType: file.type });
+        try {
+            await uploadBytes(ref(storage, path), file, { contentType: file.type });
+        } catch (error) {
+            const code = (error as { code?: string }).code;
+            if (code === "storage/unauthorized") throw new Error("Your account is saved, but verification upload was denied. Retry or finish Identity verification from your seller dashboard. Contact support if access is still denied.");
+            if (code === "storage/unauthenticated") throw new Error("Please sign in again before uploading verification documents.");
+            throw error;
+        }
         documents.push({ name: key, path });
     }
     const { sellerType: _type, ...fields } = details;

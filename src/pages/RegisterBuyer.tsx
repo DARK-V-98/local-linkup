@@ -79,12 +79,12 @@ export default function RegisterBuyer() {
     >
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
-          <Field label="Full name" name="name" placeholder="Saman Perera" icon="fa-user" required />
-          <Field label="Phone" name="phone" placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
+          <Field label="Full name" name="name" autoComplete="name" placeholder="Saman Perera" icon="fa-user" required />
+          <Field label="Phone" name="phone" autoComplete="tel" placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
         </div>
-        <Field label="Email" name="email" placeholder="you@example.com" icon="fa-envelope" type="email" required />
+        <Field label="Email" name="email" autoComplete="email" placeholder="you@example.com" icon="fa-envelope" type="email" required />
         <Field label="City" name="city" placeholder="Colombo" icon="fa-location-dot" required />
-        <Field label="Password" name="password" placeholder="••••••••" icon="fa-lock" type="password" required />
+        <Field label="Password" name="password" autoComplete="new-password" placeholder="••••••••" icon="fa-lock" type="password" required />
 
         <label className="flex items-start gap-3 text-sm text-muted-foreground">
           <input type="checkbox" required className="mt-1 accent-[hsl(var(--primary))]" />

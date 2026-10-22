@@ -95,7 +95,7 @@ export default function Login() {
           <div className="relative">
             <i className="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm" />
             <input
-              type="email"
+              type="email" autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -117,6 +117,7 @@ export default function Login() {
             <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm" />
             <input
               type={showPw ? "text" : "password"}
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

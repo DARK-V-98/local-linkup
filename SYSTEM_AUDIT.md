@@ -53,3 +53,12 @@ Local emulator mode connects Auth, Firestore, Storage and Functions together; it
 - No penetration test, production load test, live provider charge or audit of production Firebase Console settings has been performed. Client tests and emulator authorization checks do not verify deployed rules until they are activated.
 
 Sources: [Firebase field restrictions](https://firebase.google.com/docs/firestore/security/rules-fields), [verified Auth token fields](https://firebase.google.com/docs/rules/rules-and-auth), [PayHere signed notification verification](https://support.payhere.lk/api-%26-mobile-sdk/checkout-api).
+
+
+## Registration upload correction — 22 October 2026
+
+The live Storage bucket was still using starter rules with an expiry of 25 June 2026, causing verification uploads to return 403. Replaced them with the reviewed owner-scoped `storage.rules`. The named Firestore database was still using permissive starter rules expiring on 25 December 2026; deployed the reviewed `firestore.rules` to protect verification metadata and other private records. Both deploy commands completed successfully. These actions deployed rules only, not Cloud Functions, indexes or frontend hosting.
+
+Registration now supplies explicit new-password, name, email and telephone autocomplete hints; login supplies current-password. Verification upload checks that Firebase Auth and the application session identify the same owner, and reports a recoverable upload error without implying account creation failed. The account remains available for retry or Seller → Identity verification. TypeScript, production build and all 46 frontend tests pass, including three new upload/session recovery tests.
+
+No production identity files were uploaded or inspected during verification. A reported `keyboard.ts-tYuLfG3S.js` exception was not found in repository source, build assets, loaded application scripts or the inspected browser errors. Its full script URL is needed to attribute it; do not suppress global errors or modify unrelated keyboard handlers without that evidence.
