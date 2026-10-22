@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import AppShell from "@/components/layout/AppShell";
 import PostComposer from "@/components/feed/PostComposer";
@@ -21,9 +22,9 @@ export default function Feed() {
 
   return (
     <AppShell fullBleed>
-      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-6 pb-10">
+      <div className="feed-page">
         {/* Page heading */}
-        <header className="text-center max-w-2xl mx-auto mb-6">
+        <header className="feed-page-heading">
           <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary bg-primary/10 px-4 py-1.5 rounded-full">
             <i className="fas fa-bolt" /> Live Feed
           </span>
@@ -31,14 +32,14 @@ export default function Feed() {
             What sellers are <span className="text-gradient-brand">offering today</span>
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Scroll, like, and reach out — Facebook-style discovery for Sri Lanka's services.
+            Discover local skills, share your work, and make a connection.
           </p>
         </header>
 
-        <div className="grid lg:grid-cols-[260px_1fr_280px] gap-6 max-w-6xl mx-auto">
+        <div className="feed-layout">
           {/* Left rail */}
           <aside className="hidden lg:block space-y-4">
-            <div className="bg-card border border-border rounded-3xl p-4 shadow-soft sticky top-24">
+            <div className="bg-card border border-border rounded-3xl p-4 shadow-soft feed-sticky">
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 px-2">Browse</p>
               <nav className="flex flex-col gap-1">
                 {filters.map((f) => (
@@ -64,7 +65,7 @@ export default function Feed() {
             <PostComposer />
 
             {/* Mobile filter strip */}
-            <div className="lg:hidden -mx-4 px-4 overflow-x-auto">
+            <div className="feed-filters lg:hidden">
               <div className="flex gap-2 pb-1">
                 {filters.map((f) => (
                   <button
@@ -98,38 +99,14 @@ export default function Feed() {
             )}
           </section>
 
-          {/* Right rail */}
-          <aside className="hidden lg:block space-y-4">
-            <div className="bg-card border border-border rounded-3xl p-5 shadow-soft sticky top-24">
-              <h3 className="font-bold text-foreground flex items-center gap-2">
-                <i className="fas fa-fire text-orange-500" /> Trending tags
-              </h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {["#colombo", "#wedding", "#tuition", "#delivery", "#cleaning", "#webdesign", "#kandy"].map((t) => (
-                  <span key={t} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted text-foreground/80 hover:bg-foreground/10 cursor-pointer">
-                    {t}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-5 pt-5 border-t border-border">
-                <h4 className="font-bold text-foreground flex items-center gap-2">
-                  <i className="fas fa-star text-amber-500" /> Top sellers
-                </h4>
-                <ul className="mt-3 space-y-3">
-                  {["Tharindu P.", "Nirmala S.", "Kasun J."].map((s, i) => (
-                    <li key={s} className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-brand grid place-items-center text-primary-foreground font-bold text-sm">
-                        {s[0]}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{s}</p>
-                        <p className="text-xs text-muted-foreground">{120 - i * 20} services sold</p>
-                      </div>
-                      <button className="text-xs font-bold text-primary hover:underline">Follow</button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          {/* Useful discovery links instead of fabricated rankings and follow buttons. */}
+          <aside className="hidden xl:block">
+            <div className="bg-card border border-border rounded-3xl p-5 feed-sticky space-y-4">
+              <h2 className="font-bold text-lg">Make a connection</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">Find a local professional for your next project, or explore a stay built around you.</p>
+              <Link to="/browse" className="business-secondary w-full">Explore services</Link>
+              <Link to="/hotels" className="business-secondary w-full">Hotels & stays</Link>
+              <Link to="/post-request" className="text-sm font-bold text-primary block py-3">Tell sellers what you need →</Link>
             </div>
           </aside>
         </div>

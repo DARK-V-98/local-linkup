@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { before,after,beforeEach,test } from "node:test";
 import assert from "node:assert/strict";
 import { initializeTestEnvironment,assertFails,assertSucceeds } from "@firebase/rules-unit-testing";
-import { collection,doc,getDoc,getDocs,setDoc,updateDoc,addDoc,deleteDoc } from "firebase/firestore";
+import { collection,query,where,doc,getDoc,getDocs,setDoc,updateDoc,addDoc,deleteDoc } from "firebase/firestore";
 let env;
 const user=(role="buyer",over={})=>({name:"Test User",email:"buyer@example.com",phone:"0771234567",role,district:"Colombo",verified:false,joinedAt:"2026-10-22",totalOrders:0,totalEarnings:0,...over});
 const db=(uid,email=`${uid}@example.com`,verified=false)=>env.authenticatedContext(uid,{email,email_verified:verified}).firestore();
@@ -37,3 +37,20 @@ test("support records are owned and status is admin controlled",async()=>{const 
 test("booking parties can subscribe before a payment is created",async()=>{await assertSucceeds(getDoc(doc(db("buyer"),"payments","order")));await assertSucceeds(getDoc(doc(db("seller"),"payments","order")));await assertFails(getDoc(doc(db("other"),"payments","order")));});
 
 test("dispute participants may append their own messages but cannot impersonate support",async()=>{await env.withSecurityRulesDisabled(async ctx=>setDoc(doc(ctx.firestore(),"disputes","issue"),{buyerId:"buyer",sellerId:"seller",messages:[],status:"open"}));const ref=doc(db("buyer"),"disputes","issue");await assertFails(updateDoc(ref,{messages:[{from:"admin",text:"Refund approved",at:"now"}]}));await assertSucceeds(updateDoc(ref,{messages:[{from:"buyer",text:"Please review",at:"now"}]}));await assertFails(updateDoc(ref,{status:"resolved"}));});
+
+test("hotel drafts and application records stay private and cannot be self approved",async()=>{
+ await env.withSecurityRulesDisabled(async ctx=>{await setDoc(doc(ctx.firestore(),"hotelProperties","seller"),{ownerId:"seller",status:"pending",name:"Test hotel"});await setDoc(doc(ctx.firestore(),"emergencyApplications","seller"),{ownerId:"seller",status:"pending"});});
+ await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),"hotelProperties","seller")));
+ await assertSucceeds(getDoc(doc(db("seller"),"hotelProperties","seller")));
+ await assertFails(updateDoc(doc(db("seller"),"hotelProperties","seller"),{status:"approved"}));
+ await assertFails(getDoc(doc(db("other"),"emergencyApplications","seller")));
+ await assertFails(setDoc(doc(db("seller"),"emergencyProviders","seller"),{ownerId:"seller"}));
+});
+test("approved hotel catalog is public but paused extras and private notes are not",async()=>{
+ await env.withSecurityRulesDisabled(async ctx=>{const d=ctx.firestore();await setDoc(doc(d,"hotelProperties","seller"),{ownerId:"seller",status:"approved"});await setDoc(doc(d,"hotelProperties","seller","rooms","room"),{active:true});await setDoc(doc(d,"hotelProperties","seller","addons","extra"),{active:false});await setDoc(doc(d,"businessReviews","hotel_seller"),{ownerId:"seller",notes:"Private"});});
+ const anon=env.unauthenticatedContext().firestore();await assertSucceeds(getDoc(doc(anon,"hotelProperties","seller","rooms","room")));await assertFails(getDoc(doc(anon,"hotelProperties","seller","addons","extra")));await assertFails(getDoc(doc(anon,"businessReviews","hotel_seller")));await assertSucceeds(getDocs(query(collection(anon,"hotelProperties"),where("status","==","approved"))));await assertSucceeds(getDocs(query(collection(anon,"hotelProperties","seller","rooms"),where("active","==",true))));await assertSucceeds(getDoc(doc(db("seller"),"businessReviews","hotel_seller")));await assertFails(getDoc(doc(db("other"),"businessReviews","hotel_seller")));
+});
+test("hotel requests and sent quotes are private to participants and server written",async()=>{
+ await env.withSecurityRulesDisabled(async ctx=>{const d=ctx.firestore();await setDoc(doc(d,"hotelRequests","stay"),{buyerId:"buyer",ownerId:"seller",status:"requested"});await setDoc(doc(d,"hotelRequests","stay","quotes","1"),{quoteMinor:10000});});
+ await assertSucceeds(getDoc(doc(db("buyer"),"hotelRequests","stay")));await assertSucceeds(getDoc(doc(db("seller"),"hotelRequests","stay","quotes","1")));await assertFails(getDoc(doc(db("other"),"hotelRequests","stay")));await assertFails(updateDoc(doc(db("seller"),"hotelRequests","stay"),{quoteMinor:1}));await assertFails(updateDoc(doc(db("buyer"),"hotelRequests","stay"),{status:"accepted"}));
+});

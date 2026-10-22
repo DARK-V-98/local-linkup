@@ -1,3 +1,4 @@
+import { ChevronDown, LayoutGrid } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import ServiceImage from "@/components/ServiceImage";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -36,6 +37,7 @@ export default function Browse() {
   const [maxPrice, setMaxPrice] = useState(200000);
   const [sortBy, setSortBy] = useState("relevant");
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const [page, setPage] = useState(1);
   const {savedIds:savedSet,toggle}=useSaved();
 
@@ -202,14 +204,18 @@ export default function Browse() {
             )}
         </section>
 
-        <section className="mt-6 flex flex-col lg:flex-row gap-8">
+        <section className="mt-4 flex flex-col lg:flex-row gap-4 lg:gap-8">
+          {/* Mobile categories stay collapsed so services appear first. */}
+          <button type="button" aria-expanded={showCategories} aria-controls="browse-categories" onClick={() => setShowCategories(value => !value)} className="lg:hidden flex min-h-12 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-800">
+            <LayoutGrid size={18} className="text-primary shrink-0"/><span className="min-w-0 flex-1 text-left break-words">{activeCategory === "all" ? "Categories" : activeCategory}</span><ChevronDown size={18} className={showCategories ? "rotate-180 shrink-0" : "shrink-0"}/>
+          </button>
           {/* Sidebar */}
-          <aside className="w-full lg:w-64 shrink-0 space-y-6 lg:sticky lg:top-24 lg:self-start">
+          <aside id="browse-categories" className={`${showCategories ? "block" : "hidden"} lg:block w-full lg:w-64 shrink-0 space-y-6 lg:sticky lg:top-24 lg:self-start`}>
             <div className="bg-white border border-slate-200 rounded-2xl p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Categories</h3>
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 max-h-[50vh] overflow-y-auto lg:max-h-none">
                 <button
-                  onClick={() => setActiveCategory("all")}
+                  onClick={() => {setActiveCategory("all");setShowCategories(false);}}
                   className={`w-full text-left px-4 py-2.5 rounded-xl font-semibold text-sm transition ${activeCategory === "all" ? "bg-primary/10 text-primary" : "hover:bg-foreground/5 text-muted-foreground"}`}
                 >
                   All Services
@@ -217,10 +223,10 @@ export default function Browse() {
                 {categories.map((c) => (
                   <button
                     key={c.id}
-                    onClick={() => setActiveCategory(c.name)}
+                    onClick={() => {setActiveCategory(c.name);setShowCategories(false);}}
                     className={`w-full text-left px-4 py-2.5 rounded-xl font-semibold text-sm transition flex items-center justify-between ${activeCategory === c.name ? "bg-primary/10 text-primary" : "hover:bg-foreground/5 text-muted-foreground"}`}
                   >
-                    <span className="flex items-center gap-2">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 [overflow-wrap:anywhere]">
                       <i className={`fas ${c.icon} text-xs w-4`} />
                       {c.name}
                     </span>
@@ -230,7 +236,7 @@ export default function Browse() {
               </div>
             </div>
 
-            <div className="p-6 bg-slate-900 rounded-[2rem] text-white relative overflow-hidden">
+            <div className="hidden lg:block p-6 bg-slate-900 rounded-[2rem] text-white relative overflow-hidden">
               <div className="absolute inset-0 dot-pattern-light opacity-20" />
               <div className="relative">
                 <i className="fas fa-rocket text-primary text-3xl mb-4" />
@@ -247,7 +253,7 @@ export default function Browse() {
               href={supportHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 p-4 bg-[#25D366]/10 border border-[#25D366]/30 rounded-2xl hover:bg-[#25D366]/20 transition"
+              className="hidden lg:flex items-center gap-3 p-4 bg-[#25D366]/10 border border-[#25D366]/30 rounded-2xl hover:bg-[#25D366]/20 transition"
             >
               <i className="fab fa-whatsapp text-2xl text-[#25D366]" />
               <div>
@@ -258,7 +264,7 @@ export default function Browse() {
           </aside>
 
           {/* Results */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-7">
               <div className="text-sm font-bold text-muted-foreground">
                 <span className="text-foreground font-black">{servicesLoading ? "…" : filtered.length}</span> results

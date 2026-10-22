@@ -13,6 +13,11 @@ import { BrowserRouter,Route,Routes } from "react-router-dom";
 import Index from "./pages/Index.tsx";
 
 // ─── Lazy-loaded pages (code-split per route) ─────────────────────────────────
+const Hotels = lazy(() => import("./pages/hotel/Hotels"));
+const HotelWorkspace = lazy(() => import("./pages/dashboard/hotel/HotelWorkspace"));
+const BuyerStays = lazy(() => import("./pages/hotel/BuyerStays"));
+const EmergencyApplication = lazy(() => import("./pages/dashboard/seller/EmergencyApplication"));
+const BusinessApplications = lazy(() => import("./pages/admin/BusinessApplications"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection.tsx"));
 const RegisterBuyer = lazy(() => import("./pages/RegisterBuyer.tsx"));
 const RegisterSeller = lazy(() => import("./pages/RegisterSeller.tsx"));
@@ -86,6 +91,12 @@ const App = () => (
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/hotels" element={<Hotels />} />
+              <Route path="/hotels/:propertyId" element={<Hotels />} />
+              <Route path="/dashboard/hotel/*" element={seller(<HotelWorkspace />)} />
+              <Route path="/dashboard/buyer/hotels" element={authed(<BuyerStays />)} />
+              <Route path="/dashboard/seller/emergency" element={seller(<EmergencyApplication />)} />
+              <Route path="/admin/business-applications" element={admin(<BusinessApplications />)} />
               <Route path="/browse" element={<Browse />} />
               <Route path="/service/:id" element={<ServiceDetail />} />
               <Route path="/feed" element={<Feed />} />

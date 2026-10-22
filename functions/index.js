@@ -1,3 +1,4 @@
+import { businessOperations as createBusinessOperations } from "./business.js";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -208,6 +209,12 @@ export const syncAccountState = onDocumentWritten({ ...options, database: "needl
         await getAuth().updateUser(account.uid, { disabled: suspended });
     if (suspended)
         await getAuth().revokeRefreshTokens(account.uid);
+    if (suspended || !profile.verified) {
+        await db.doc(`emergencyProviders/${event.params.uid}`).delete();
+        const hotelRef = db.doc(`hotelProperties/${event.params.uid}`);
+        const hotel = await hotelRef.get();
+        if (hotel.exists && hotel.data().status === "approved") await hotelRef.update({status:suspended?"suspended":"changes_requested",updatedAt:FieldValue.serverTimestamp()});
+    }
     // Keep public listing identity flags consistent with admin verification.
     const services = await db.collection("services").where("sellerId", "==", account.uid).get();
     const writer = db.bulkWriter();
@@ -316,4 +323,23 @@ export const reviewNotifications = onDocumentCreated({ ...options, database: "ne
     if (profile?.notificationPreferences?.reviews === false)
         return;
     await db.doc(`users/${review.sellerId}/notifications/${event.id}`).set({ type: "review", title: "New service review", body: `${review.author} left a ${review.rating}-star review.`, link: `/service/${review.serviceId}`, read: false, createdAt: FieldValue.serverTimestamp() });
+});
+
+export const businessOperations = createBusinessOperations(db, actor);
+
+export const hotelRequestNotifications = onDocumentWritten({ ...options, database: "needlyy", document: "hotelRequests/{id}" }, async event => {
+    if (!event.data?.after.exists) return;
+    const current = event.data.after.data(), previous = event.data.before.data();
+    if (current.status === previous?.status && current.quoteVersion === previous?.quoteVersion) return;
+    await Promise.all([...new Set([current.buyerId,current.ownerId])].map(async uid => {
+        const profile = (await db.doc(`users/${uid}`).get()).data();
+        if (profile?.notificationPreferences?.bookingUpdates === false) return;
+        await db.doc(`users/${uid}/notifications/${event.id}`).set({type:"booking_new",title:`Hotel enquiry ${current.status}`,body:current.propertyName,link:uid===current.ownerId?"/dashboard/hotel/requests":"/dashboard/buyer/hotels",read:false,createdAt:FieldValue.serverTimestamp()});
+    }));
+});
+
+export const businessReviewNotifications = onDocumentWritten({ ...options, database: "needlyy", document: "businessReviews/{id}" }, async event => {
+    const current = event.data?.after.data();
+    if (!current) return;
+    await db.doc(`users/${current.ownerId}/notifications/${event.id}`).set({type:"review",title:`${current.kind === "hotel" ? "Hotel" : "Urgent-service"} application ${current.status.replaceAll("_"," ")}`,body:current.notes || "Open your business workspace for the review status.",link:current.kind === "hotel"?"/dashboard/hotel/property":"/dashboard/seller/emergency",read:false,createdAt:FieldValue.serverTimestamp()});
 });

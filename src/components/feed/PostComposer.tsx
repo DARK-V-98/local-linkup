@@ -98,7 +98,7 @@ export default function PostComposer() {
             maxLength={400}
           />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="relative">
               <select
                 value={category}
@@ -167,14 +167,14 @@ export default function PostComposer() {
         {user ? (
           <button
             onClick={handleOpen}
-            className="flex-1 text-left px-5 py-3 rounded-full bg-muted text-muted-foreground hover:bg-foreground/5 transition text-sm"
+            className="flex-1 min-w-0 text-left px-4 py-3 rounded-full bg-muted text-muted-foreground hover:bg-foreground/5 transition text-sm"
           >
             Share a service you offer, {user.name.split(" ")[0]}…
           </button>
         ) : (
           <Link
             to="/login"
-            className="flex-1 text-left px-5 py-3 rounded-full bg-muted text-muted-foreground hover:bg-foreground/5 transition text-sm"
+            className="flex-1 min-w-0 text-left px-4 py-3 rounded-full bg-muted text-muted-foreground hover:bg-foreground/5 transition text-sm"
           >
             Share a service you offer…
           </Link>
@@ -190,7 +190,7 @@ export default function PostComposer() {
             <button
               key={item.label}
               onClick={handleOpen}
-              className="flex items-center justify-center gap-2 py-2 rounded-xl hover:bg-foreground/5 text-sm font-semibold text-muted-foreground transition"
+              className="flex items-center justify-center gap-1 sm:gap-2 py-2 min-w-0 rounded-xl hover:bg-foreground/5 text-xs sm:text-sm font-semibold text-muted-foreground transition"
             >
               <i className={`fas ${item.icon} ${item.color}`} /> {item.label}
             </button>
@@ -198,7 +198,7 @@ export default function PostComposer() {
             <Link
               key={item.label}
               to="/login"
-              className="flex items-center justify-center gap-2 py-2 rounded-xl hover:bg-foreground/5 text-sm font-semibold text-muted-foreground transition"
+              className="flex items-center justify-center gap-1 sm:gap-2 py-2 min-w-0 rounded-xl hover:bg-foreground/5 text-xs sm:text-sm font-semibold text-muted-foreground transition"
             >
               <i className={`fas ${item.icon} ${item.color}`} /> {item.label}
             </Link>

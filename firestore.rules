@@ -181,6 +181,28 @@ service cloud.firestore {
       allow update: if admin() && changedOnly(['status','notes','updatedAt']) && request.resource.data.status in ['open','in_progress','closed'];
       allow delete: if false;
     }
+    // Hotel and urgent capability writes run through authenticated server operations.
+    match /hotelProperties/{uid} {
+      allow read: if resource.data.status == 'approved' || self(uid) || admin();
+      allow write: if false;
+      match /{kind}/{itemId} {
+        allow read: if self(uid) || admin() || (kind in ['rooms','addons','packages']
+          && get(/databases/$(database)/documents/hotelProperties/$(uid)).data.status == 'approved'
+          && resource.data.active == true);
+        allow write: if false;
+      }
+    }
+    match /hotelRequests/{id} {
+      allow read: if active() && (resource.data.buyerId == request.auth.uid || resource.data.ownerId == request.auth.uid || admin());
+      allow write: if false;
+      match /quotes/{version} {
+        allow read: if active() && (get(/databases/$(database)/documents/hotelRequests/$(id)).data.buyerId == request.auth.uid || get(/databases/$(database)/documents/hotelRequests/$(id)).data.ownerId == request.auth.uid || admin());
+        allow write: if false;
+      }
+    }
+    match /businessReviews/{id} { allow read: if admin() || (active() && (id == 'hotel_' + request.auth.uid || id == 'emergency_' + request.auth.uid)); allow write: if false; }
+    match /emergencyApplications/{uid} { allow read: if self(uid) || admin(); allow write: if false; }
+    match /emergencyProviders/{uid} { allow read: if true; allow write: if false; }
     match /payments/{id} {
       allow get: if active() && (admin() || get(/databases/$(database)/documents/bookings/$(id)).data.buyerId == request.auth.uid || get(/databases/$(database)/documents/bookings/$(id)).data.sellerId == request.auth.uid);
       allow list: if active() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid || admin());

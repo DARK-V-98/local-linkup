@@ -1,9 +1,20 @@
 import { BarChart3,Briefcase,CircleAlert,CreditCard,FileBarChart,Heart,Home,Layers,MessageSquare,Settings,ShieldCheck,ShoppingBag,Store,Tags,Users,Wallet,type LucideIcon } from "lucide-react";
-export type WorkspaceRole = "buyer" | "seller" | "admin";
+export type WorkspaceRole = "buyer" | "seller" | "admin" | "hotel";
 export interface WorkspaceLink { label: string; to: string; Icon: LucideIcon; group: string; }
 export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
+  hotel: [
+    {label:"Overview",to:"/dashboard/hotel",Icon:Home,group:"Hotel business"},
+    {label:"Property",to:"/dashboard/hotel/property",Icon:Store,group:"Hotel business"},
+    {label:"Rooms",to:"/dashboard/hotel/rooms",Icon:Layers,group:"Hotel business"},
+    {label:"Packages",to:"/dashboard/hotel/packages",Icon:Briefcase,group:"Hotel business"},
+    {label:"Addons",to:"/dashboard/hotel/addons",Icon:Tags,group:"Hotel business"},
+    {label:"Requests",to:"/dashboard/hotel/requests",Icon:MessageSquare,group:"Hotel business"},
+    {label:"Seller workspace",to:"/dashboard/seller",Icon:ShoppingBag,group:"Account"},
+    {label:"Settings",to:"/dashboard/seller/settings",Icon:Settings,group:"Account"},
+  ],
   buyer: [
     { label: "Overview", to: "/dashboard/buyer", Icon: Home, group: "Your workspace" },
+    {label:"Hotel stays",to:"/dashboard/buyer/hotels",Icon:Store,group:"Your workspace"},
     { label: "My bookings", to: "/dashboard/buyer/orders", Icon: ShoppingBag, group: "Your workspace" },
     { label: "Messages", to: "/dashboard/buyer/inbox", Icon: MessageSquare, group: "Your workspace" },
     { label: "Saved services", to: "/dashboard/buyer/saved", Icon: Heart, group: "Your workspace" },
@@ -12,6 +23,8 @@ export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
   ],
   seller: [
     { label: "Overview", to: "/dashboard/seller", Icon: Home, group: "Your business" },
+    {label:"Hotel business",to:"/dashboard/hotel",Icon:Store,group:"Your business"},
+    {label:"Urgent services",to:"/dashboard/seller/emergency",Icon:CircleAlert,group:"Your business"},
     { label: "Orders", to: "/dashboard/seller/orders", Icon: ShoppingBag, group: "Your business" },
     { label: "My services", to: "/dashboard/seller/services", Icon: Briefcase, group: "Your business" },
     { label: "Messages", to: "/dashboard/seller/inbox", Icon: MessageSquare, group: "Your business" },
@@ -24,6 +37,7 @@ export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
     { label: "Overview", to: "/admin", Icon: Home, group: "Operations" },
     { label: "Orders", to: "/admin/orders", Icon: ShoppingBag, group: "Operations" },
     { label: "Payments", to: "/admin/payments", Icon: CreditCard, group: "Operations" },
+    {label:"Business applications",to:"/admin/business-applications",Icon:Store,group:"Operations"},
     { label: "Verifications", to: "/admin/verifications", Icon: ShieldCheck, group: "Operations" },
     { label: "Support requests", to: "/admin/requests", Icon: MessageSquare, group: "Operations" },
     { label: "Disputes", to: "/admin/disputes", Icon: CircleAlert, group: "Operations" },

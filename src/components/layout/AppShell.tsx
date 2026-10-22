@@ -5,12 +5,12 @@ import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { AuthUser,getUser,signOutFirebase } from "@/lib/auth";
 import { LANG_LABELS,Lang,getLang,setLang } from "@/lib/lang";
 import { markNotificationsRead } from "@/lib/notifications";
-import { Bell,Briefcase,ChevronsLeft,ChevronsRight,Compass,Globe,Headphones,Heart,Home,Inbox,Info,LayoutDashboard,Menu,Newspaper,Plus,Search,ShoppingBag,TriangleAlert,UserCheck,Users } from "lucide-react";
+import { Building2,Bell,Briefcase,ChevronsLeft,ChevronsRight,Compass,Globe,Headphones,Heart,Home,Inbox,Info,LayoutDashboard,Menu,Newspaper,Plus,Search,ShoppingBag,TriangleAlert,UserCheck,Users } from "lucide-react";
 import { ReactNode,useEffect,useRef,useState } from "react";
 import { Link,useLocation,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-const NAV_ICONS = { "fa-house": Home, "fa-compass": Compass, "fa-plus": Plus, "fa-globe": Globe, "fa-newspaper": Newspaper, "fa-circle-info": Info, "fa-headset": Headphones, "fa-triangle-exclamation": TriangleAlert, "fa-gauge-high": LayoutDashboard, "fa-bag-shopping": ShoppingBag, "fa-heart": Heart, "fa-briefcase": Briefcase, "fa-inbox": Inbox, "fa-user-check": UserCheck, "fa-users": Users };
+const NAV_ICONS = { "fa-hotel": Building2, "fa-house": Home, "fa-compass": Compass, "fa-plus": Plus, "fa-globe": Globe, "fa-newspaper": Newspaper, "fa-circle-info": Info, "fa-headset": Headphones, "fa-triangle-exclamation": TriangleAlert, "fa-gauge-high": LayoutDashboard, "fa-bag-shopping": ShoppingBag, "fa-heart": Heart, "fa-briefcase": Briefcase, "fa-inbox": Inbox, "fa-user-check": UserCheck, "fa-users": Users };
 
 /* ── Sidebar navigation model ─────────────────────────────────────────── */
 
@@ -24,6 +24,7 @@ interface NavItem {
 const PRIMARY_NAV: NavItem[] = [
   { to: "/", label: "Home", icon: "fa-house" },
   { to: "/browse", label: "Browse", icon: "fa-compass" },
+  { to: "/hotels", label: "Hotels & stays", icon: "fa-hotel" },
   { to: "/post-request", label: "Post a Job", icon: "fa-plus" },
   { to: "/overseas", label: "Overseas", icon: "fa-globe" },
   { to: "/feed", label: "Feed", icon: "fa-newspaper" },
@@ -348,7 +349,7 @@ export default function AppShell({
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="h-16 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 md:px-6 sticky top-0 z-30">
+        <header className="app-topbar h-16 bg-white/90 backdrop-blur border-b border-slate-200 flex items-center gap-3 px-4 md:px-6 sticky top-0 z-30">
           <button
             className="lg:hidden w-10 h-10 rounded-xl bg-slate-100 grid place-items-center text-slate-700 shrink-0"
             onClick={() => setSidebarOpen(true)}

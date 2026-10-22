@@ -11,7 +11,7 @@ import { formatPrice,timeAgo } from "@/lib/format";
 import { generateId } from "@/lib/store";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { useState } from "react";
-import { Link,useNavigate,useParams } from "react-router-dom";
+import { useSearchParams, Link,useNavigate,useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 const BOOKING_EXTRA_FIELDS: Record<string, { label: string; placeholder: string }[]> = {
@@ -64,12 +64,14 @@ function StarRating({ rating }: { rating: number }) {
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const urgent = ["roof","electric","plumbing","flood","medicine","lockout"].includes(searchParams.get("urgent")??"");
   const { service, reviews, loading } = useService(id);
   const { services: allServices } = useServices();
 
   usePageTitle(
     service ? `${service.title} by ${service.seller}` : "Service Detail",
-    service ? `Book ${service.title} by ${service.seller} on Needlyy. Starting from ${service.price > 0 ? `Rs. ${service.price.toLocaleString()}` : "negotiable"}. Verified seller in ${service.location}.` : undefined
+    service && !urgent ? `Book ${service.title} by ${service.seller} on Needlyy. Starting from ${service.price > 0 ? `Rs. ${service.price.toLocaleString()}` : "negotiable"}. Verified seller in ${service.location}.` : undefined
   );
 
   const {isSaved,toggle}=useSaved();
@@ -112,7 +114,7 @@ export default function ServiceDetail() {
 
   const validateAndConfirm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!getUser()) { navigate("/login?redirect=" + encodeURIComponent(`/service/${service.id}`)); return; }
+    if (!getUser()) { navigate("/login?redirect=" + encodeURIComponent(`/service/${service.id}${urgent ? `?urgent=${searchParams.get("urgent")}` : ""}`)); return; }
     if (getUser()?.id === service.sellerId) { toast.error("You cannot book your own service."); return; }
     if (date && date < new Date().toLocaleDateString("en-CA")) { toast.error("Choose today or a future date."); return; }
     if (!name.trim()) { toast.error("Please enter your name."); return; }
@@ -127,7 +129,7 @@ export default function ServiceDetail() {
 
   const messageSeller = async () => {
     const user=getUser();
-    if(!user){navigate("/login?redirect="+encodeURIComponent(`/service/${service.id}`));return;}
+    if(!user){navigate("/login?redirect="+encodeURIComponent(`/service/${service.id}${urgent ? `?urgent=${searchParams.get("urgent")}` : ""}`));return;}
     if(!service.sellerId||user.id===service.sellerId){toast.error("Choose another seller to start a conversation.");return;}
     try {
       const existing=await findExistingConversation(user.id,service.sellerId,service.id);
@@ -176,11 +178,11 @@ export default function ServiceDetail() {
 
   return (
     <AppShell fullBleed>
-      <div className="pb-10">
-        <div className="container mx-auto px-4 pt-4"><button onClick={()=>void messageSeller()} className="rounded-xl border px-5 py-3 text-primary font-bold">Message this seller</button></div>
+      <div className="service-detail-page pb-10 min-w-0">
+        <div className="container mx-auto px-4 pt-4 flex flex-wrap gap-3"><a href="#request-booking" className="lg:hidden rounded-xl bg-primary px-5 py-3 text-white font-bold">{urgent ? "Contact seller" : "Request booking"}</a><button onClick={()=>void messageSeller()} className="rounded-xl border px-5 py-3 text-primary font-bold">Message this seller</button></div>
         {/* Breadcrumb */}
         <div className="container mx-auto px-4 py-4">
-          <nav className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
+          <nav className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-semibold">
             <Link to="/" className="hover:text-primary transition">Home</Link>
             <i className="fas fa-chevron-right text-[10px]" />
             <Link to="/browse" className="hover:text-primary transition">Browse</Link>
@@ -191,9 +193,9 @@ export default function ServiceDetail() {
           </nav>
         </div>
 
-        <div className="container mx-auto px-4 py-4 grid lg:grid-cols-3 gap-10">
+        <div className="container mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-10 min-w-0">
           {/* Left — main content */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 min-w-0 space-y-6 lg:space-y-8">
             {/* Service header card */}
             <div className="bg-card border border-border rounded-3xl overflow-hidden">
               <div className="relative h-52 md:h-72 bg-slate-100 flex items-center justify-center overflow-hidden">
@@ -204,7 +206,7 @@ export default function ServiceDetail() {
                   </span>
                 )}
                 <span className="absolute top-4 right-4 inline-flex items-center gap-1 bg-background/90 backdrop-blur px-3 py-1.5 rounded-full text-xs font-bold">
-                  <i className="fas fa-tag text-primary text-[10px]" /> {service.type}
+                  <i className="fas fa-tag text-primary text-[10px]" /> {urgent ? "Urgent enquiry" : service.type}
                 </span>
               </div>
               <div className="p-6 md:p-8">
@@ -249,16 +251,16 @@ export default function ServiceDetail() {
               <h2 className="text-lg font-black mb-4">About This Service</h2>
               <p className="text-muted-foreground leading-relaxed">{service.description ?? "No description provided."}</p>
 
-              <h3 className="text-base font-black mt-7 mb-4">What's Included</h3>
+              <h3 className="text-base font-black mt-7 mb-4">Before requesting</h3>
               <ul className="space-y-2.5">
                 {[
-                  "Professional consultation before starting",
-                  "High-quality service as described",
-                  "Direct communication via WhatsApp",
-                  "Post-service follow-up support",
-                  service.type === "Fixed Price" ? "Fixed price — no hidden fees" : null,
-                  service.type === "Online Service" ? "Zoom / Google Meet sessions" : null,
-                  service.type === "Booking Service" ? "Flexible date scheduling" : null,
+                  "Discuss the scope and deliverables with the seller",
+                  "Confirm the preferred timing and location",
+                  "Keep a record of your conversation and agreed requirements",
+                  "Agree the quotation and cancellation terms before work starts",
+                  null,
+                  service.type === "Online Service" ? "Confirm the online meeting platform" : null,
+                  service.type === "Booking Service" ? "Ask the seller to confirm availability" : null,
                 ].filter(Boolean).map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm">
                     <span className="grid place-items-center w-5 h-5 rounded-full bg-primary/10 text-primary shrink-0 mt-0.5">
@@ -370,11 +372,11 @@ export default function ServiceDetail() {
           </div>
 
           {/* Right — booking sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-5">
+          <div id="request-booking" className="lg:col-span-1 min-w-0 scroll-mt-24">
+            <div className="lg:sticky lg:top-24 space-y-5 min-w-0">
               {/* Price card */}
-              <div className="bg-card border border-border rounded-3xl p-6 shadow-glass">
-                <div className="flex items-end justify-between mb-1">
+              {urgent ? <div className="bg-card border border-border rounded-3xl p-6 space-y-4"><h2 className="text-xl font-black">Discuss your urgent request</h2><p className="text-sm text-muted-foreground">Ask this registered seller about availability, suitability and a quote. There is no fixed emergency price or automatic dispatch.</p><button className="business-primary" onClick={()=>void messageSeller()}>Message this seller</button><Link className="business-secondary" to={`/emergency?type=${searchParams.get("urgent")}`}>Compare other providers</Link></div> : <div className="bg-card border border-border rounded-3xl p-6 shadow-glass">
+                <div className="flex flex-wrap items-end justify-between gap-3 mb-1">
                   <div>
                     <span className="text-xs text-muted-foreground font-bold uppercase">Starting at</span>
                     <div className="text-3xl font-black mt-1">{formatPrice(service.price)}</div>
@@ -389,7 +391,7 @@ export default function ServiceDetail() {
                 <div className="mt-5 space-y-2.5">
                   {[
                     { icon: "fa-shield-halved", text: "Secure booking — your data is protected" },
-                    { icon: "fa-rotate-left", text: "Free to cancel up to 24hrs before" },
+                    { icon: "fa-rotate-left", text: "Confirm cancellation terms with the seller before booking" },
                     { icon: "fa-headset", text: "Needly support if anything goes wrong" },
                   ].map((b) => (
                     <div key={b.text} className="flex items-start gap-2.5 text-xs text-muted-foreground">
@@ -404,7 +406,7 @@ export default function ServiceDetail() {
                 {/* Confirmation modal */}
                 {showConfirm && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-background border border-border rounded-3xl p-6 max-w-sm w-full shadow-glass">
+                    <div role="dialog" aria-modal="true" aria-label="Confirm booking request" className="bg-background border border-border rounded-3xl p-6 max-w-sm w-full max-h-[80dvh] overflow-y-auto shadow-glass">
                       <h3 className="font-black text-lg mb-2">Confirm Booking Request</h3>
                       <p className="text-sm text-muted-foreground mb-4">
                         You're requesting <strong>{service.title}</strong> from <strong>{service.seller}</strong> on <strong>{date}</strong>{time ? ` at ${time}` : ""}.
@@ -451,7 +453,7 @@ export default function ServiceDetail() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-bold text-muted-foreground">Preferred Date</label>
                       <input
@@ -518,19 +520,18 @@ export default function ServiceDetail() {
                       <><i className="fas fa-calendar-check" /> Request Booking</>
                     )}
                   </button>
-                  <p className="text-center text-xs text-muted-foreground">The seller will confirm via WhatsApp</p>
+                  <p className="text-center text-xs text-muted-foreground">Track the seller’s response in your bookings.</p>
                 </form>
-              </div>
+              </div>}
 
               {/* Customer protection box */}
               <div className="bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden">
                 <div className="absolute inset-0 dot-pattern-light opacity-20" />
                 <div className="relative">
                   <i className="fas fa-shield-halved text-primary text-3xl mb-3" />
-                  <h4 className="font-bold text-base">Needly Protection</h4>
+                  <h4 className="font-bold text-base">Booking support</h4>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Customer protection up to <strong className="text-white">Rs. 20,000</strong> for verified bookings.
-                    If something goes wrong, our team is here to help.
+                    Keep your booking details and agreed requirements in your dashboard. Contact support if you need help with a service request.
                   </p>
                   <Link to="/about" className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline">
                     Learn more <i className="fas fa-arrow-right text-[10px]" />
@@ -549,7 +550,7 @@ export default function ServiceDetail() {
               {related.map((s) => (
                 <Link
                   key={s.id}
-                  to={`/service/${s.id}`}
+                  to={`/service/${s.id}${urgent ? `?urgent=${searchParams.get("urgent")}` : ""}`}
                   className="group bg-card border border-border rounded-3xl overflow-hidden hover:shadow-glass hover:-translate-y-1 transition-all"
                 >
                   <div className="relative h-32 bg-slate-100 overflow-hidden">
@@ -560,7 +561,7 @@ export default function ServiceDetail() {
                     <h3 className="font-bold text-sm line-clamp-2">{s.title}</h3>
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs text-muted-foreground font-semibold">{s.seller}</span>
-                      <span className="font-black text-sm">{formatPrice(s.price)}</span>
+                      <span className="font-black text-sm">{urgent ? "Ask for a quote" : formatPrice(s.price)}</span>
                     </div>
                   </div>
                 </Link>

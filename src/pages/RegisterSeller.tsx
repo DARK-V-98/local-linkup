@@ -4,15 +4,17 @@ import { getUser,signUpSeller } from "@/lib/auth";
 import { submitVerification } from "@/lib/firestore/workflows";
 import { validateUpload } from "@/lib/validation";
 import { FormEvent,useState } from "react";
-import { Link,useNavigate } from "react-router-dom";
+import { Link,useNavigate,useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 type SellerType = "individual" | "business";
 
 export default function RegisterSeller() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [businessKind,setBusinessKind] = useState(searchParams.get("business")==="hotel"?"hotel":"general");
   const { categories, loading: categoriesLoading } = useCategories();
-  const [type, setType] = useState<SellerType>("individual");
+  const [type, setType] = useState<SellerType>(searchParams.get("business")==="hotel"?"business":"individual");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -52,8 +54,8 @@ export default function RegisterSeller() {
       const businessName = (data.get("businessName") as string) ?? "";
       // Businesses give an address rather than a city field
       const city = (data.get("city") as string) || "Colombo";
-      if (!category) { toast.error("Please select a primary category."); return; }
-      setStep2Data({ category, city, bio, businessName, experience:String(data.get("experience") ?? ""), skills:String(data.get("skills") ?? ""), brn:String(data.get("brn") ?? ""), teamSize:String(data.get("teamSize") ?? ""), website:String(data.get("website") ?? ""), address:String(data.get("address") ?? "") });
+      if (!category && !(type === "business" && businessKind === "hotel")) { toast.error("Please select a primary category."); return; }
+      setStep2Data({ category: businessKind === "hotel" && type === "business" ? "Hotels & Accommodation" : category, city, bio, businessName, experience:String(data.get("experience") ?? ""), skills:String(data.get("skills") ?? ""), brn:String(data.get("brn") ?? ""), teamSize:String(data.get("teamSize") ?? ""), website:String(data.get("website") ?? ""), address:String(data.get("address") ?? "") });
       next();
       return;
     }
@@ -89,7 +91,7 @@ export default function RegisterSeller() {
       });
       await submitVerification(data,{sellerType:type,businessRegistration:step2Data.brn,experience:step2Data.experience,skills:step2Data.skills,teamSize:step2Data.teamSize,website:step2Data.website,address:step2Data.address,taxNumber:String(data.get("tin") ?? "")});
       toast.success("Application and documents saved for review. Check your email to verify ownership.");
-      navigate("/dashboard/seller");
+      navigate(type === "business" && businessKind === "hotel" ? "/dashboard/hotel/property" : "/dashboard/seller");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed.";
       if (msg.includes("email-already-in-use")) {
@@ -164,6 +166,8 @@ export default function RegisterSeller() {
 
         {step === 2 && type === "business" && (
           <>
+            <label className="block text-sm font-bold">Business type<select value={businessKind} onChange={e=>setBusinessKind(e.target.value)} className="mt-2 block w-full border rounded-xl p-3"><option value="general">General services business</option><option value="hotel">Hotel / accommodation</option></select></label>
+            {businessKind === "hotel" && <p className="text-sm text-slate-500">After identity submission, set up your dedicated hotel workspace, rooms, packages and extras.</p>}
             <div className="grid md:grid-cols-2 gap-4">
               <Field label="Business name" name="businessName" defaultValue={step2Data.businessName} placeholder="Lanka Home Services (Pvt) Ltd" icon="fa-building" required />
               <Field label="Business reg. number" name="brn" defaultValue={step2Data.brn} placeholder="PV 12345" icon="fa-file-contract" required />
@@ -174,8 +178,8 @@ export default function RegisterSeller() {
                 name="category"
                 icon="fa-layer-group"
                 defaultValue={step2Data.category}
-                disabled={categoriesLoading}
-                required
+                disabled={categoriesLoading || businessKind === "hotel"}
+                required={businessKind !== "hotel"}
               >
                 <option value="">{categoriesLoading ? "Loading categories…" : "Select a category"}</option>
                 {categories.map((c) => (
