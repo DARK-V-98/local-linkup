@@ -1,15 +1,13 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, updateBookingStatus, StoredBooking } from "@/lib/store";
-import { formatPrice } from "@/lib/format";
-import { usePageTitle } from "@/lib/usePageTitle";
-import { toast } from "sonner";
 import ReviewModal from "@/components/ReviewModal";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import { subscribeToBookingsByBuyer } from "@/lib/firestore/bookings";
+import { useBookings } from "@/hooks/useBookings";
 import { tsToIso } from "@/lib/firestore/normalize";
-import { getUser } from "@/lib/auth";
+import { formatPrice } from "@/lib/format";
+import { type StoredBooking } from "@/lib/store";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -31,48 +29,15 @@ const STATUS_CONFIG = {
 export default function BuyerOrders() {
   usePageTitle("My Bookings");
   const [tab, setTab] = useState<"active" | "history">("active");
-  const [bookings, setBookings] = useState<StoredBooking[]>([]);
+  const { bookings: rawBookings, loading, error, updateStatus } = useBookings("buyer");
+  const bookings: StoredBooking[] = rawBookings.map(b => ({ ...b, createdAt: tsToIso(b.createdAt) }));
   const [reviewTarget, setReviewTarget] = useState<StoredBooking | null>(null);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [cancelingId, setCancelingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const user = getUser();
-    // Use real-time Firestore listener when Firebase is configured and user is not a demo account
-    if (isFirebaseConfigured && user) {
-      const unsub = subscribeToBookingsByBuyer(user.id, (firestoreBookings) => {
-        // Merge Firestore bookings with localStorage (Firestore takes precedence)
-        const local = getBookings();
-        const fsIds = new Set(firestoreBookings.map((b) => b.id));
-        const normalized = firestoreBookings.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }));
-        const merged = [...normalized, ...local.filter((b) => !fsIds.has(b.id))];
-        setBookings(merged);
-      });
-      return unsub;
-    } else {
-      setBookings(getBookings());
-      // Live cross-tab + same-tab sync for localStorage/demo mode
-      const onChange = () => setBookings(getBookings());
-      window.addEventListener("needly-bookings-change", onChange);
-      let bc: BroadcastChannel | undefined;
-      try {
-        bc = new BroadcastChannel("needly-sync");
-        bc.onmessage = (e) => { if (e.data?.type === "bookings-change") onChange(); };
-      } catch { /* BroadcastChannel unsupported */ }
-      window.addEventListener("storage", onChange);
-      return () => {
-        window.removeEventListener("needly-bookings-change", onChange);
-        window.removeEventListener("storage", onChange);
-        bc?.close();
-      };
-    }
-  }, []);
-
-  const confirmCancel = (id: string) => {
-    updateBookingStatus(id, "cancelled");
-    setBookings((prev) => prev.map((b) => b.id === id ? { ...b, status: "cancelled" } : b));
-    setCancelingId(null);
-    toast.success("Booking cancelled. A refund will be processed within 3 days.");
+  const confirmCancel = async (id: string) => {
+    try { await updateStatus(id, "cancelled"); setCancelingId(null); toast.success("Booking cancelled."); }
+    catch { toast.error("Could not cancel the booking. Please try again."); }
   };
 
   const active = bookings.filter((b) => ["pending", "confirmed", "in_progress"].includes(b.status));
@@ -86,6 +51,8 @@ export default function BuyerOrders() {
         <p className="text-slate-500 text-sm">Track and manage all your service bookings.</p>
       </div>
 
+      {loading && <p role="status">Loading orders…</p>}
+      {error && <p role="alert" className="text-red-600">{error}</p>}
       {/* Summary row */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
@@ -255,9 +222,9 @@ export default function BuyerOrders() {
       <ReviewModal
         open={!!reviewTarget}
         onClose={() => {
-          if (reviewTarget) setReviewed((prev) => new Set(prev).add(reviewTarget.id));
           setReviewTarget(null);
         }}
+        onSubmitted={() => { if (reviewTarget) setReviewed(prev => new Set(prev).add(reviewTarget.id)); }}
         vendorName={reviewTarget?.vendorName ?? ""}
         serviceName={reviewTarget?.serviceTitle ?? ""}
         bookingId={reviewTarget?.id ?? ""}

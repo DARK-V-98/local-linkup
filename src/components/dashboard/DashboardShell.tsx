@@ -1,10 +1,12 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Bell, Menu, X, Search, ArrowUpRight, LogOut, ChevronRight, Compass } from "lucide-react";
-import { getUser, signOutFirebase } from "@/lib/auth";
-import { getNotifications, type AppNotification } from "@/components/NotificationsDropdown";
-import { WORKSPACE_NAV, type WorkspaceRole } from "./navigation";
+import BrandMark from "@/components/BrandMark";
+import { getNotifications,type AppNotification } from "@/components/NotificationsDropdown";
+import { getUser,signOutFirebase } from "@/lib/auth";
+import { markNotificationsRead } from "@/lib/notifications";
+import { ArrowUpRight,Bell,ChevronRight,Compass,LogOut,Menu,Search,X } from "lucide-react";
+import { useEffect,useRef,useState,type ReactNode } from "react";
+import { Link,useLocation,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { WORKSPACE_NAV,type WorkspaceRole } from "./navigation";
 
 export default function DashboardShell({ children }: { children: ReactNode; role?: string; sidebarItems?: { label: string; to: string; icon: string }[] }) {
   const { pathname } = useLocation();
@@ -38,17 +40,13 @@ export default function DashboardShell({ children }: { children: ReactNode; role
     document.addEventListener("keydown", escape);
     return () => { document.body.style.overflow = old; document.removeEventListener("keydown", escape); };
   }, [drawer]);
-  const markRead = (id?: string) => {
-    const next = getNotifications().map(n => !id || n.id === id ? { ...n, read: true } : n);
-    localStorage.setItem("needly_notifications", JSON.stringify(next));
-    window.dispatchEvent(new Event("needly-notifications-change"));
-  };
+  const markRead = (id?:string) => { void markNotificationsRead(id).catch(()=>toast.error("Could not update notifications.")); };
   const searchLinks = links.filter(l => l.label.toLowerCase().includes(query.toLowerCase()));
   const mobileLinks = workspace === "admin" ? links.filter(l => ["Overview", "Orders", "Verifications", "Reports"].includes(l.label)) : links.filter(l => ["Overview", workspace === "seller" ? "Orders" : "My bookings", "Messages", workspace === "seller" ? "My services" : "Saved services"].includes(l.label));
   return <div className="workspace-frame">
     {drawer && <button className="workspace-overlay" aria-label="Close menu" onClick={() => setDrawer(false)} />}
     <aside className={`workspace-sidebar ${drawer ? "is-open" : ""}`} aria-label="Workspace navigation">
-      <div className="workspace-brand"><Link to="/"><span>N</span>Needlyy<span className="brand-dot">.</span></Link><button ref={closeRef} className="mobile-close" aria-label="Close menu" onClick={() => { setDrawer(false); menuRef.current?.focus(); }}><X size={20} /></button></div>
+      <div className="workspace-brand"><Link to="/"><BrandMark size={36}/>Needlyy<span className="brand-dot">.</span></Link><button ref={closeRef} className="mobile-close" aria-label="Close menu" onClick={() => { setDrawer(false); menuRef.current?.focus(); }}><X size={20} /></button></div>
       <div className="workspace-type">{workspace === "admin" ? "ADMIN CONSOLE" : workspace === "seller" ? "SELLER STUDIO" : "YOUR PERSONAL SPACE"}</div>
       <nav className="workspace-links">{links.map((l, i) => <div key={l.to}>{(i === 0 || links[i - 1].group !== l.group) && <p className="nav-group">{l.group}</p>}<Link to={l.to} onClick={() => { setDrawer(false); setQuery(""); }} aria-current={isActive(l.to) ? "page" : undefined} className={isActive(l.to) ? "active" : ""}><l.Icon size={19} strokeWidth={1.7} /><span>{l.label}</span>{isActive(l.to) && <span className="nav-active-dot" />}</Link></div>)}</nav>
       <Link className="marketplace-return" to="/browse"><Compass size={18} />Explore marketplace<ArrowUpRight size={15} /></Link>

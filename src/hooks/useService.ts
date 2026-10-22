@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import { fetchServiceById, type FirestoreService } from "@/lib/firestore/services";
-import { subscribeToServiceReviews, getReviewsBySeller, type FSReview } from "@/lib/firestore/reviews";
-import { getMyServices } from "@/lib/store";
-import { tsToIso } from "@/lib/firestore/normalize";
 import type { ServiceListing } from "@/data/catalog";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { tsToIso } from "@/lib/firestore/normalize";
+import { getReviewsBySeller,subscribeToServiceReviews,type FSReview } from "@/lib/firestore/reviews";
+import { fetchServiceById,type FirestoreService } from "@/lib/firestore/services";
+import { useEffect,useState } from "react";
 
 /** A review shaped for the UI, with the Firestore Timestamp already resolved. */
 export interface UIReview {
@@ -24,6 +23,7 @@ export function useService(id: string | undefined) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setService(null);setReviews([]);setLoading(true);
     if (!id) {
       setService(null);
       setLoading(false);
@@ -32,34 +32,7 @@ export function useService(id: string | undefined) {
 
     let cancelled = false;
 
-    if (!isFirebaseConfigured) {
-      const local = getMyServices().find((s) => s.id === id);
-      setService(
-        local
-          ? {
-              id: local.id,
-              title: local.title,
-              category: local.category,
-              categoryIcon: local.categoryIcon.replace(/^fas\s+/, ""),
-              seller: "You",
-              sellerInitial: "Y",
-              location: local.district,
-              district: local.district,
-              price: local.price,
-              rating: local.rating ?? 0,
-              reviews: 0,
-              type: local.type,
-              postedAt: new Date(local.createdAt),
-              description: local.description,
-              tags: local.tags,
-              priceUnit: local.priceUnit,
-              imageUrl: local.imageUrl,
-            }
-          : null
-      );
-      setLoading(false);
-      return;
-    }
+    if (!isFirebaseConfigured) { setService(null); setLoading(false); return; }
 
     fetchServiceById(id)
       .then((doc) => {

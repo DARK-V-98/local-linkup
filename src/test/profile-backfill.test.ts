@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach,describe,expect,it,vi } from "vitest";
 
 vi.mock("@/lib/firebase", () => ({
   isFirebaseConfigured: true,
@@ -16,7 +16,7 @@ vi.mock("@/lib/firestore/users", () => ({
   createUserProfile: vi.fn(),
 }));
 
-import { ensureProfileForUser, DEVELOPER_EMAIL } from "@/lib/auth";
+import { DEVELOPER_EMAIL,ensureProfileForUser } from "@/lib/auth";
 
 const fbUser = (over: Partial<Record<string, unknown>> = {}) => ({
   uid: "UID123",
@@ -77,7 +77,7 @@ describe("profile backfill on sign-in", () => {
 
     const profile = await ensureProfileForUser(fbUser());
 
-    expect(profile).toEqual(existing);
+    expect(profile).toEqual({...existing,emailVerified:false});
     // An existing seller must not be demoted or re-verified by a login.
     expect(updateUserProfile).not.toHaveBeenCalled();
   });
@@ -88,10 +88,12 @@ describe("profile backfill on sign-in", () => {
       created: true,
     }));
 
-    const profile = await ensureProfileForUser(fbUser({ email: DEVELOPER_EMAIL }));
+    const profile = await ensureProfileForUser(fbUser({ email: DEVELOPER_EMAIL,emailVerified:true }));
 
     expect(profile.role).toBe("developer");
   });
+
+  it("never promotes a matching profile email without verified Firebase identity",async()=>{ensureUserProfile.mockResolvedValue({profile:{id:"UID123",email:DEVELOPER_EMAIL,role:"buyer"},created:false});const profile=await ensureProfileForUser(fbUser());expect(profile.role).toBe("buyer");expect(profile.email).toBe("person@example.com");});
 
   it("propagates read failures rather than treating them as 'missing'", async () => {
     // The caller must keep the cached session; silently creating a profile

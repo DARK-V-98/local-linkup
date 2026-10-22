@@ -1,15 +1,15 @@
-import { lazy, Suspense, useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import CommandPalette from "@/components/CommandPalette";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import ScrollToTop from "@/components/ScrollToTop";
+import ProtectedRoute,{ PageLoader } from "@/components/auth/ProtectedRoute";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { auth, isFirebaseConfigured } from "@/lib/firebase";
-import { getUser, setUser, clearUser, ensureProfileForUser } from "@/lib/auth";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import ScrollToTop from "@/components/ScrollToTop";
-import CommandPalette from "@/components/CommandPalette";
-import ProtectedRoute, { PageLoader } from "@/components/auth/ProtectedRoute";
+import { useAuth } from "@/hooks/useAuth";
+import { clearNotifications,startNotificationSync } from "@/lib/notifications";
+import { QueryClient,QueryClientProvider } from "@tanstack/react-query";
+import { lazy,Suspense,useEffect } from "react";
+import { BrowserRouter,Route,Routes } from "react-router-dom";
 import Index from "./pages/Index.tsx";
 
 // ─── Lazy-loaded pages (code-split per route) ─────────────────────────────────
@@ -46,11 +46,13 @@ const AdminOrders = lazy(() => import("./pages/admin/Orders.tsx"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments.tsx"));
 const AdminSellers = lazy(() => import("./pages/admin/Sellers.tsx"));
 const SellerSettings = lazy(() => import("./pages/dashboard/seller/SellerSettings.tsx"));
+const SellerVerification=lazy(()=>import("./pages/dashboard/seller/Verification.tsx"));
 const SellerEarnings = lazy(() => import("./pages/dashboard/seller/SellerEarnings.tsx"));
 const BuyerSettings = lazy(() => import("./pages/dashboard/buyer/BuyerSettings.tsx"));
 const BuyerPayments = lazy(() => import("./pages/dashboard/buyer/BuyerPayments.tsx"));
 const SavedSellers = lazy(() => import("./pages/dashboard/buyer/SavedSellers.tsx"));
 const SellerInbox = lazy(() => import("./pages/dashboard/seller/SellerInbox.tsx"));
+const AdminRequests = lazy(() => import("./pages/admin/Requests.tsx"));
 const AdminReports = lazy(() => import("./pages/admin/Reports.tsx"));
 const SellerAnalytics = lazy(() => import("./pages/admin/Reports.tsx").then(module => ({ default: module.SellerAnalytics })));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -59,34 +61,9 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const queryClient = new QueryClient();
 
 function AuthStateWatcher() {
-  useEffect(() => {
-    if (!isFirebaseConfigured) return;
-    let unsubscribe: (() => void) | undefined;
-    import("firebase/auth").then(({ onAuthStateChanged }) => {
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-          const current = getUser();
-          if (!current || current.id !== firebaseUser.uid) {
-            try {
-              // Creates the Firestore profile when absent, so it exists even if
-              // the user never passes through the login screen this session.
-              const profile = await ensureProfileForUser(firebaseUser);
-              setUser(profile);
-              window.dispatchEvent(new Event("needly-auth-change"));
-            } catch {
-              // Offline — leave the cached session untouched rather than
-              // risk overwriting a profile we simply could not read.
-            }
-          }
-        } else if (getUser()) {
-          clearUser();
-          window.dispatchEvent(new Event("needly-auth-change"));
-        }
-      });
-    });
-    return () => unsubscribe?.();
-  }, []);
-  return null;
+ const {user}=useAuth();
+ useEffect(()=>{if(!user){clearNotifications();return;}return startNotificationSync(user.id);},[user?.id]);
+ return null;
 }
 
 // ─── Route guard helpers ──────────────────────────────────────────────────────
@@ -139,12 +116,14 @@ const App = () => (
               <Route path="/admin/payments" element={admin(<AdminPayments />)} />
               <Route path="/admin/sellers" element={admin(<AdminSellers />)} />
               <Route path="/dashboard/seller/settings" element={seller(<SellerSettings />)} />
+              <Route path="/dashboard/seller/verification" element={seller(<SellerVerification />)} />
               <Route path="/dashboard/seller/earnings" element={seller(<SellerEarnings />)} />
               <Route path="/dashboard/buyer/settings" element={buyer(<BuyerSettings />)} />
               <Route path="/dashboard/buyer/payments" element={buyer(<BuyerPayments />)} />
               <Route path="/dashboard/buyer/saved" element={buyer(<SavedSellers />)} />
               <Route path="/dashboard/seller/inbox" element={seller(<SellerInbox />)} />
               <Route path="/dashboard/buyer/inbox" element={buyer(<SellerInbox perspective="buyer" />)} />
+              <Route path="/admin/requests" element={admin(<AdminRequests />)} />
               <Route path="/admin/reports" element={admin(<AdminReports />)} />
               <Route path="/dashboard/seller/analytics" element={seller(<SellerAnalytics />)} />
               <Route path="/role-selection" element={<RoleSelection />} />

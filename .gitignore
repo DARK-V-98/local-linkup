@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+functions/.env*
+!functions/.env.example
+.firebase/
+*-debug.log
+
+# Generated audit and preview artifacts
+artifacts/

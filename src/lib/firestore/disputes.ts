@@ -1,16 +1,17 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  arrayUnion,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+addDoc,
+arrayUnion,
+collection,
+doc,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+updateDoc,
+where,
+type Timestamp,
+} from "firebase/firestore";
 
 export const DISPUTES_COL = "disputes";
 
@@ -82,7 +83,11 @@ export function subscribeToDisputes(
   const q = query(collection(db, DISPUTES_COL), orderBy("createdAt", "desc"));
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSDispute))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSDispute))),
     (err) => onError?.(err)
   );
+}
+
+export function subscribeBookingDisputes(orderId:string,uid:string,perspective:"buyer"|"seller",callback:(disputes:FSDispute[])=>void,onError:(error:unknown)=>void) {
+ return onSnapshot(query(collection(db,DISPUTES_COL),where("orderId","==",orderId),where(perspective==="buyer"?"buyerId":"sellerId","==",uid)),snap=>callback(snap.docs.map(doc=>({...doc.data(),id:doc.id}) as FSDispute)),onError);
 }

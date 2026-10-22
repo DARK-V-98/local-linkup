@@ -1,59 +1,72 @@
-import { useState, useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { isFirebaseConfigured, auth } from "@/lib/firebase";
-import {
-  setUser,
-  clearUser,
-  getUser,
-  ensureProfileForUser,
-  type AuthUser,
-} from "@/lib/auth";
-
-/**
- * Subscribes to Firebase Auth state changes and keeps the localStorage
- * session cache in sync. All existing `getUser()` calls stay valid.
- *
- * Falls back gracefully to the cached session when Firebase is not configured.
- */
-export function useAuth() {
-  const [user, setLocalUser] = useState<AuthUser | null>(() => getUser());
-  const [loading, setLoading] = useState(isFirebaseConfigured);
-
-  useEffect(() => {
+import { clearUser, ensureProfileForUser, getUser, resolveRole, setUser, type AuthUser } from "@/lib/auth";
+import { auth, db, isFirebaseConfigured } from "@/lib/firebase";
+import { onIdTokenChanged } from "firebase/auth";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useSyncExternalStore } from "react";
+let snapshot: {
+    user: AuthUser | null;
+    loading: boolean;
+    error: string | null;
+} = { user: null, loading: isFirebaseConfigured, error: null };
+const listeners = new Set<() => void>();
+let started = false;
+function emit(user: AuthUser | null, loading = false, error: string | null = null) {
+    snapshot = { user, loading, error };
+    listeners.forEach(listener => listener());
+}
+function start() {
+    if (started)
+        return;
+    started = true;
     if (!isFirebaseConfigured) {
-      setLoading(false);
-      return;
-    }
-
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Writes the profile to Firestore if it is missing, so a session
-          // restored on page load can never leave the account undocumented.
-          const profile = await ensureProfileForUser(firebaseUser);
-          setUser(profile);
-          setLocalUser(profile);
-        } catch {
-          // Network error or offline — keep the cached session and write
-          // nothing. Guessing "missing" here would overwrite a real profile.
-          setLocalUser(getUser());
-        }
-      } else {
         clearUser();
-        setLocalUser(null);
-      }
-      setLoading(false);
+        emit(null, false, "Authentication is not configured.");
+        return;
+    }
+    let stopProfile: (() => void) | undefined;
+    let generation = 0;
+    window.addEventListener("needly-auth-change", () => {
+        if (!snapshot.loading && auth.currentUser?.uid === getUser()?.id)
+            emit(getUser());
     });
-
-    return unsub;
-  }, []);
-
-  // React to same-window sign-in / sign-out dispatched via setUser / clearUser
-  useEffect(() => {
-    const onAuthChange = () => setLocalUser(getUser());
-    window.addEventListener("needly-auth-change", onAuthChange);
-    return () => window.removeEventListener("needly-auth-change", onAuthChange);
-  }, []);
-
-  return { user, loading };
+    onIdTokenChanged(auth, async (account) => {
+        const version = ++generation;
+        stopProfile?.();
+        emit(null, true);
+        if (!account) {
+            clearUser();
+            emit(null);
+            return;
+        }
+        try {
+            const profile = await ensureProfileForUser(account);
+            if (version !== generation)
+                return;
+            setUser(profile);
+            emit(profile);
+            stopProfile = onSnapshot(doc(db, "users", account.uid), document => {
+                if (version !== generation)
+                    return;
+                if (!document.exists() || document.data().status === "suspended") {
+                    clearUser();
+                    emit(null, false, "Your account is unavailable. Contact support.");
+                    return;
+                }
+                const data = document.data() as AuthUser;
+                const user = { ...data, id: account.uid, email: account.email ?? "", emailVerified: account.emailVerified, role: resolveRole(account.email ?? "", data.role, account.emailVerified) };
+                setUser(user);
+                emit(user);
+            }, () => { clearUser(); emit(null, false, "Could not verify your account. Please sign in again."); });
+        }
+        catch (error) {
+            if (version !== generation)
+                return;
+            clearUser();
+            emit(null, false, error instanceof Error ? error.message : "Could not verify your account.");
+        }
+    });
+}
+export function useAuth() {
+    useEffect(start, []);
+    return useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => snapshot);
 }

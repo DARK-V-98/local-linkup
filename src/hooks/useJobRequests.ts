@@ -1,15 +1,17 @@
-import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToJobRequests,
-  type FSJobRequest,
-  type JobUrgency,
+subscribeToJobRequests,
+type FSJobRequest,
+type JobUrgency,
 } from "@/lib/firestore/jobRequests";
 import { tsToIso } from "@/lib/firestore/normalize";
+import { useEffect,useState } from "react";
 
 /** A job request shaped for the board, with the timestamp resolved. */
 export interface JobRequestView {
   id: string;
+  authorId?:string;
   title: string;
   category: string;
   categoryIcon: string;
@@ -28,8 +30,11 @@ export function useJobRequests() {
   const [requests, setRequests] = useState<JobRequestView[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const {user}=useAuth();
+  const [error,setError]=useState<string|null>(null);
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    setRequests([]);
+    if (!isFirebaseConfigured || !user) {
       setLoading(false);
       return;
     }
@@ -43,20 +48,21 @@ export function useJobRequests() {
       settled = true;
       setRequests(docs.map(toView));
       setLoading(false);
-    });
+    },50,()=>{setLoading(false);setError("Could not load job requests. Please sign in and check your connection.");});
 
     return () => {
       window.clearTimeout(fallbackTimer);
       unsub();
     };
-  }, []);
+  }, [user?.id]);
 
-  return { requests, loading };
+  return { requests, loading,error };
 }
 
 function toView(r: FSJobRequest): JobRequestView {
   return {
     id: r.id,
+    authorId:r.authorId,
     title: r.title,
     category: r.category,
     categoryIcon: r.categoryIcon || "fa-tag",

@@ -1,18 +1,18 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  updateDoc,
-  query,
-  orderBy,
-  limit,
-  onSnapshot,
-  increment,
-  serverTimestamp,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+addDoc,
+collection,
+deleteDoc,
+doc,
+getDocs,
+limit,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+setDoc,
+type Timestamp
+} from "firebase/firestore";
 
 export const POSTS_COL = "feedPosts";
 
@@ -60,30 +60,18 @@ export async function addFeedPost(
   return ref.id;
 }
 
-export async function likePost(postId: string): Promise<void> {
-  await updateDoc(doc(db, POSTS_COL, postId), {
-    likes: increment(1),
-  });
+export async function setPostLiked(postId:string,uid:string,liked:boolean) {
+ const target=doc(db,POSTS_COL,postId,"likes",uid);
+ if(liked)await setDoc(target,{createdAt:serverTimestamp()});else await deleteDoc(target);
 }
-
-export async function sharePost(postId: string): Promise<void> {
-  await updateDoc(doc(db, POSTS_COL, postId), {
-    shares: increment(1),
-  });
+export function subscribePostLike(postId:string,uid:string,callback:(liked:boolean)=>void) {
+ return onSnapshot(doc(db,POSTS_COL,postId,"likes",uid),snap=>callback(snap.exists()));
 }
-
-export async function addComment(
-  postId: string,
-  comment: Omit<FSPostComment, "id" | "createdAt" | "postId">
-): Promise<void> {
-  await addDoc(collection(db, POSTS_COL, postId, "comments"), {
-    ...comment,
-    postId,
-    createdAt: serverTimestamp(),
-  });
-  await updateDoc(doc(db, POSTS_COL, postId), {
-    comments: increment(1),
-  });
+export async function addComment(postId:string,comment:Omit<FSPostComment,"id"|"createdAt"|"postId">) {
+ await addDoc(collection(db,POSTS_COL,postId,"comments"),{...comment,postId,createdAt:serverTimestamp()});
+}
+export function subscribeComments(postId:string,callback:(comments:FSPostComment[])=>void,onError:(error:unknown)=>void) {
+ return onSnapshot(query(collection(db,POSTS_COL,postId,"comments"),orderBy("createdAt","asc"),limit(100)),snap=>callback(snap.docs.map(item=>({...item.data(),id:item.id}) as FSPostComment)),onError);
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
@@ -95,7 +83,7 @@ export async function getFeedPosts(n = 30): Promise<FSPost[]> {
     limit(n)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSPost));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSPost));
 }
 
 // ── Real-time ──────────────────────────────────────────────────────────────────
@@ -110,6 +98,6 @@ export function subscribeToFeed(
     limit(n)
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSPost)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSPost)));
   });
 }

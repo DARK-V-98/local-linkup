@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { submitRequest } from "@/lib/firestore/workflows";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useState } from "react";
 import { toast } from "sonner";
 
 const PACKAGES = [
@@ -96,20 +97,19 @@ const COUNTRIES = [
 ];
 
 export default function Overseas() {
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
   usePageTitle("Overseas Sri Lankans — Property & Family Care");
   const [selected, setSelected] = useState("pro");
   const [form, setForm] = useState({ name: "", email: "", phone: "", country: "", propertyDistrict: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.phone) { toast.error("Name and phone are required."); return; }
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      toast.success("Enquiry received! Our team will WhatsApp you within 24 hours.");
-      setForm({ name: "", email: "", phone: "", country: "", propertyDistrict: "", message: "" });
-    }, 1500);
+    try { await submitRequest("overseas",{...form,package:selected}); toast.success("Your enquiry is saved for our team to review."); setForm({name:"",email:"",phone:"",country:"",propertyDistrict:"",message:""}); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save your enquiry."); }
+    finally { setSubmitting(false); }
   };
 
   return (
@@ -144,7 +144,7 @@ export default function Overseas() {
                 View Packages
               </a>
               <a
-                href="https://wa.me/94771234567?text=Hi%20Needly!%20I'm%20an%20overseas%20Sri%20Lankan%20and%20I'm%20interested%20in%20your%20property%20management%20service."
+                href={supportHref}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-2 bg-[#25D366] text-white px-8 py-4 rounded-2xl font-bold text-base hover:bg-[#20ba5a] transition"
               >
@@ -248,7 +248,7 @@ export default function Overseas() {
             {/* Form */}
             <div>
               <h2 className="text-3xl font-black mb-2">Get started today</h2>
-              <p className="text-muted-foreground mb-8">Leave your details and we'll WhatsApp you within 24 hours. No contracts, cancel anytime.</p>
+              <p className="text-muted-foreground mb-8">Leave your details for support to review your enquiry and confirm availability and terms.</p>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
@@ -293,7 +293,7 @@ export default function Overseas() {
                   className="w-full bg-gradient-brand text-primary-foreground py-4 rounded-2xl font-bold shadow-glow hover:scale-[1.02] transition disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2">
                   {submitting ? <><i className="fas fa-spinner fa-spin" /> Sending...</> : <><i className="fas fa-paper-plane" /> Send Enquiry</>}
                 </button>
-                <a href="https://wa.me/94771234567?text=Hi%20Needly!%20I'm%20interested%20in%20your%20Overseas%20service."
+                <a href={supportHref}
                   target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 bg-[#25D366] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#20ba5a] transition">
                   <i className="fab fa-whatsapp text-lg" /> Or WhatsApp Us Directly

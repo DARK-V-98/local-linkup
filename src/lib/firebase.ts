@@ -1,13 +1,13 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getApp,getApps,initializeApp } from "firebase/app";
+import { connectAuthEmulator,getAuth } from "firebase/auth";
 import {
-  getFirestore,
-  connectFirestoreEmulator,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+connectFirestoreEmulator,
+getFirestore,
+initializeFirestore,
+memoryLocalCache,
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { connectFunctionsEmulator,getFunctions } from "firebase/functions";
+import { connectStorageEmulator,getStorage } from "firebase/storage";
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -21,7 +21,7 @@ const firebaseConfig = {
 
 /**
  * True when all required Firebase env vars are present.
- * If false, the app falls back to localStorage for all data.
+ * Missing configuration disables authenticated data workflows.
  */
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
@@ -50,9 +50,7 @@ export const db = isFirebaseConfigured
         return initializeFirestore(
           app,
           {
-            localCache: persistentLocalCache({
-              tabManager: persistentMultipleTabManager(),
-            }),
+            localCache: memoryLocalCache(),
           },
           FIRESTORE_DATABASE_ID
         );
@@ -67,9 +65,13 @@ export const db = isFirebaseConfigured
 export const storage = getStorage(app);
 
 // ─── Emulator (dev only) ───────────────────────────────────────────────────────
-if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATOR === "true") {
+const emulatorState=globalThis as typeof globalThis & { __needlyEmulatorsConnected?:boolean };
+if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATOR === "true" && !emulatorState.__needlyEmulatorsConnected) {
   connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "localhost", 8080);
+  connectStorageEmulator(storage,"127.0.0.1",9199);
+  connectFunctionsEmulator(getFunctions(app,"us-central1"),"127.0.0.1",5002);
+  emulatorState.__needlyEmulatorsConnected=true;
 }
 
 export default app;

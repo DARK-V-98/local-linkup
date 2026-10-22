@@ -1,20 +1,20 @@
 import AppShell from "@/components/layout/AppShell";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { submitRequest } from "@/lib/firestore/workflows";
+import { usePageTitle } from "@/lib/usePageTitle";
 import { useState } from "react";
 import { toast } from "sonner";
-import { usePageTitle } from "@/lib/usePageTitle";
 
 export default function Contact() {
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
   usePageTitle("Contact & Support");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      toast.success("Message sent! We'll get back to you within 24 hours.");
-      setLoading(false);
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); const form=e.currentTarget; setLoading(true);
+    try { await submitRequest("contact",Object.fromEntries(new FormData(form)) as Record<string,string>); form.reset(); toast.success("Your message is saved. Support can now review it."); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not send your message."); }
+    finally { setLoading(false); }
   };
 
   return (
@@ -32,13 +32,13 @@ export default function Contact() {
                 <span className="text-gradient-brand">help you?</span>
               </h1>
               <p className="mt-6 text-lg text-muted-foreground max-w-md">
-                Have a question about the platform, your account, or just want to say hi? We're here for you 24/7.
+                Have a question about the platform, your account, or just want to say hi? Send a message and our support team will review it.
               </p>
 
               <div className="mt-12 space-y-6">
                 {[
-                  { icon: "fa-envelope", label: "Email support", val: "support@needlyy.lk" },
-                  { icon: "fa-phone", label: "Call us", val: "+94 11 234 5678" },
+                  { icon: "fa-envelope", label: "Email support", val: supportEmail },
+                  { icon: "fa-phone", label: "Call us", val: supportPhone || "Use the support form" },
                   { icon: "fa-location-dot", label: "Our office", val: "123 Galle Road, Colombo 03" },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center gap-4 group">
@@ -61,16 +61,16 @@ export default function Contact() {
                   <div className="grid sm:grid-cols-2 gap-5">
                     <div className="space-y-2">
                       <label className="text-sm font-bold ml-1">Name</label>
-                      <input required placeholder="Saman Perera" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      <input name="name" required placeholder="Saman Perera" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold ml-1">Email</label>
-                      <input type="email" required placeholder="saman@email.com" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition" />
+                      <input name="email" type="email" required placeholder="saman@email.com" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold ml-1">Subject</label>
-                    <select className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition appearance-none">
+                    <select name="subject" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition appearance-none">
                       <option>General Inquiry</option>
                       <option>Account Support</option>
                       <option>Payment Issue</option>
@@ -79,7 +79,7 @@ export default function Contact() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold ml-1">Message</label>
-                    <textarea required rows={5} placeholder="How can we help?" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition resize-none" />
+                    <textarea name="message" maxLength={5000} required rows={5} placeholder="How can we help?" className="w-full bg-background border border-input rounded-2xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-ring transition resize-none" />
                   </div>
                   <button
                     disabled={loading}
@@ -101,7 +101,7 @@ export default function Contact() {
             <div className="absolute inset-0 grid place-items-center bg-slate-100">
                <div className="text-center">
                   <i className="fas fa-map-marked-alt text-6xl text-slate-300 mb-4 animate-float" />
-                  <div className="font-bold text-slate-400">Interactive Map Loading...</div>
+                  <div className="font-bold text-slate-400">Based in Sri Lanka · Online support</div>
                </div>
             </div>
           </div>

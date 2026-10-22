@@ -1,11 +1,12 @@
-import { useState, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
 import { SL_DISTRICTS } from "@/data/catalog";
-import { addBooking, generateId } from "@/lib/store";
-import { toast } from "sonner";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useServices } from "@/hooks/useServices";
+import { submitRequest } from "@/lib/firestore/workflows";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useMemo,useState } from "react";
+import { Link,useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const EMERGENCY_TYPES = [
   { id: "roof", icon: "fa-house-crack", label: "Roof Leak", desc: "Emergency roof repair and waterproofing", price: 8500, surge: "1.5×", color: "from-red-500 to-rose-600" },
@@ -18,7 +19,8 @@ const EMERGENCY_TYPES = [
 
 
 export default function Emergency() {
-  usePageTitle("Emergency Dispatch");
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
+  usePageTitle("Urgent Service Request");
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -44,40 +46,16 @@ export default function Emergency() {
 
   const emergency = EMERGENCY_TYPES.find((e) => e.id === selected);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected || !name || !phone || !address) {
       toast.error("Please fill in all required fields.");
       return;
     }
     setSubmitting(true);
-    setTimeout(() => {
-      const bookingId = generateId("EM");
-      addBooking({
-        id: bookingId,
-        serviceId: selected,
-        serviceTitle: `EMERGENCY: ${emergency?.label}`,
-        category: "Emergency",
-        categoryIcon: `fas ${emergency?.icon ?? "fa-triangle-exclamation"}`,
-        vendorName: "Awaiting assignment",
-        vendorPhone: "",
-        vendorInitial: "?",
-        vendorVerified: false,
-        customerName: name,
-        customerPhone: phone,
-        date: new Date().toLocaleDateString("en-CA"),
-        time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-        notes: details,
-        extraData: { "Address": address },
-        price: emergency?.price ?? 5000,
-        district,
-        status: "pending",
-        createdAt: new Date().toISOString(),
-        isEmergency: true,
-      });
-      setSubmitting(false);
-      setDispatched(true);
-    }, 2000);
+    try { await submitRequest("emergency",{name,phone,district,address,details,type:emergency?.label ?? selected}); setDispatched(true); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not save your request."); }
+    finally { setSubmitting(false); }
   };
 
   if (dispatched) {
@@ -89,9 +67,9 @@ export default function Emergency() {
           </div>
           <h1 className="text-3xl font-black mb-2">Request received</h1>
           <p className="text-muted-foreground mb-8">
-            Your emergency request has been logged and sent to available responders in{" "}
+            Your urgent service request is saved for the support team in{" "}
             <strong className="text-foreground">{district}</strong>. You will be contacted on{" "}
-            <strong className="text-foreground">{phone}</strong> as soon as a provider accepts.
+            <strong className="text-foreground">{phone}</strong> if a provider is available. This form does not dispatch emergency services.
           </p>
 
           <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 mb-6 text-left">
@@ -109,7 +87,7 @@ export default function Emergency() {
 
           <div className="flex flex-col gap-3">
             <a
-              href="https://wa.me/94771234567?text=Emergency+support+needed"
+              href={supportHref}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 bg-[#25D366] text-white py-4 rounded-2xl font-bold"
@@ -137,7 +115,7 @@ export default function Emergency() {
             </div>
             <h1 className="text-3xl md:text-5xl font-black">Emergency Services</h1>
             <p className="mt-3 text-red-100 max-w-xl mx-auto">
-              Verified professionals dispatched within 15–30 minutes across Sri Lanka. Available 24/7.
+              Submit an urgent service request for support to review. Provider availability and response times vary. This does not dispatch emergency services.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm font-semibold">
               <span className="flex items-center gap-1.5"><i className="fas fa-clock" /> 15–30 min response</span>
@@ -279,16 +257,16 @@ export default function Emergency() {
                     className="mt-5 w-full bg-gradient-to-r from-red-600 to-rose-600 text-white py-4 rounded-2xl font-black text-base shadow-lg hover:scale-[1.02] transition disabled:opacity-60 disabled:scale-100 flex items-center justify-center gap-2"
                   >
                     {submitting ? (
-                      <><i className="fas fa-spinner fa-spin" /> Dispatching...</>
+                      <><i className="fas fa-spinner fa-spin" /> Saving request...</>
                     ) : (
-                      <><i className="fas fa-truck-fast" /> Dispatch Emergency Help</>
+                      <><i className="fas fa-truck-fast" /> Submit urgent service request</>
                     )}
                   </button>
-                  <p className="text-center text-xs text-muted-foreground mt-2">Average response: 15–30 minutes</p>
+                  <p className="text-center text-xs text-muted-foreground mt-2">Support will review availability. No response time is guaranteed.</p>
                 </form>
 
                 <a
-                  href="https://wa.me/94771234567?text=Emergency+help+needed"
+                  href={supportHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-3 flex items-center justify-center gap-2 bg-[#25D366] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#20ba5a] transition"

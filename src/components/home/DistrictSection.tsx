@@ -1,11 +1,6 @@
-import { useEffect, useState } from "react";
+import { useServices } from "@/hooks/useServices";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { getBookings } from "@/lib/store";
-
-const BASE_COUNTS: Record<string, number> = {
-  Colombo: 840, Gampaha: 320, Kandy: 280, Galle: 195,
-  Matara: 142, Anuradhapura: 98, Kurunegala: 115, Jaffna: 87, Online: 620,
-};
 
 const DISTRICT_ICONS: Record<string, string> = {
   Colombo: "fa-city", Gampaha: "fa-house-chimney", Kandy: "fa-mountain",
@@ -15,22 +10,8 @@ const DISTRICT_ICONS: Record<string, string> = {
 
 export default function DistrictSection() {
   const navigate = useNavigate();
-  const [counts, setCounts] = useState(BASE_COUNTS);
-
-  useEffect(() => {
-    const bookings = getBookings();
-    const extras: Record<string, number> = {};
-    bookings.forEach((b) => {
-      extras[b.district] = (extras[b.district] ?? 0) + 1;
-    });
-    setCounts((prev) => {
-      const next = { ...prev };
-      Object.entries(extras).forEach(([d, n]) => {
-        if (next[d] !== undefined) next[d] = next[d] + n;
-      });
-      return next;
-    });
-  }, []);
+  const {services}=useServices();
+  const counts=useMemo(()=>services.reduce<Record<string,number>>((result,service)=>{result[service.district]=(result[service.district]??0)+1;return result;},Object.fromEntries(Object.keys(DISTRICT_ICONS).map(key=>[key,0]))),[services]);
 
   return (
     <section className="container mx-auto py-12 md:py-20">
@@ -45,7 +26,7 @@ export default function DistrictSection() {
       </div>
 
       <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-3">
-        {Object.keys(BASE_COUNTS).map((name) => (
+        {Object.keys(DISTRICT_ICONS).map((name) => (
           <button
             key={name}
             onClick={() => navigate(`/browse?district=${encodeURIComponent(name)}`)}
@@ -55,7 +36,7 @@ export default function DistrictSection() {
               <i className={`fas ${DISTRICT_ICONS[name]} text-lg`} />
             </span>
             <span className="text-xs font-bold text-center leading-tight">{name}</span>
-            <span className="text-[10px] text-muted-foreground font-semibold">{counts[name]}+</span>
+            <span className="text-[10px] text-muted-foreground font-semibold">{counts[name]} services</span>
           </button>
         ))}
       </div>

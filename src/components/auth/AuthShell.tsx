@@ -1,3 +1,4 @@
+import BrandMark from "@/components/BrandMark";
 import { Link } from "react-router-dom";
 import { ReactNode } from "react";
 
@@ -21,11 +22,7 @@ export default function AuthShell({ eyebrow, title, subtitle, children, footer, 
       <div className="relative container mx-auto px-4 py-8 md:py-12">
         {/* Logo bar */}
         <Link to="/" className="inline-flex items-center gap-2 group">
-          <img 
-            src="/logo.png" 
-            alt="Needlyy" 
-            className="h-12 md:h-14 w-auto object-contain transition-transform duration-300 group-hover:scale-105" 
-          />
+          <BrandMark size={44}/><span className="text-xl font-semibold tracking-tight text-slate-900">Needlyy</span>
         </Link>
 
         <div className={`mx-auto ${maxWidth} mt-10 md:mt-14`}>

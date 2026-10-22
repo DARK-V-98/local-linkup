@@ -1,14 +1,14 @@
-import ServiceImage from "@/components/ServiceImage";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import ServiceImage from "@/components/ServiceImage";
 import { SL_DISTRICTS } from "@/data/catalog";
 import { useCategories } from "@/hooks/useCategories";
-import { addService, generateId } from "@/lib/store";
-import { toast } from "sonner";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { addFirestoreService } from "@/lib/firestore/services";
-import { getUser } from "@/lib/auth";
+import { generateId } from "@/lib/store";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -90,27 +90,13 @@ export default function NewService() {
       createdAt: new Date().toISOString(),
     };
     try {
-      // Always write to localStorage
-      addService(serviceData);
-      // Dual-write to Firestore if Firebase is configured
-      if (isFirebaseConfigured && user) {
-        await addFirestoreService({
-          ...serviceData,
-          sellerId: user.id,
-          sellerName: user.name,
-          sellerPhone: user.phone ?? "",
-          sellerVerified: user.verified ?? false,
-          badge: user.verified ? "verified" : undefined,
-          reviewCount: 0,
-          sellerDistrict: user.district ?? district,
-        });
-      }
+      if (!isFirebaseConfigured || !user) throw new Error("Please sign in and reconnect before publishing.");
+      await addFirestoreService({ ...serviceData, sellerId: user.id, sellerName: user.name, sellerPhone: user.phone ?? "", sellerVerified: false, reviewCount: 0, sellerDistrict: user.district ?? district });
       toast.success(publishAs === "active" ? "Service published! Customers can now find you." : "Service saved as draft.");
       navigate("/dashboard/seller/services");
     } catch (err) {
       console.error("Failed to save service:", err);
-      toast.success(publishAs === "active" ? "Service published locally." : "Service saved as draft.");
-      navigate("/dashboard/seller/services");
+      toast.error("Could not save your service. Your form has been kept. Please try again.");
     } finally {
       setSaving(false);
     }

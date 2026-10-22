@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
-import { signInWithFirebase, signInWithGoogle } from "@/lib/auth";
-import { toast } from "sonner";
+import { signInWithFirebase,signInWithGoogle } from "@/lib/auth";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { safeRedirect } from "@/lib/validation";
+import { useState } from "react";
+import { Link,useNavigate,useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const ROLE_DEST: Record<string, string> = {
   developer: "/admin",
@@ -16,7 +17,7 @@ export default function Login() {
   usePageTitle("Sign In");
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const redirect = params.get("redirect") ?? "/";
+  const redirect = safeRedirect(params.get("redirect"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

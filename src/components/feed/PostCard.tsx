@@ -1,6 +1,9 @@
-import { useState } from "react";
 import { FeedPost } from "@/data/feed";
-import { formatPrice, timeAgo } from "@/lib/format";
+import { getUser } from "@/lib/auth";
+import { addComment,setPostLiked,subscribeComments,subscribePostLike } from "@/lib/firestore/feed";
+import { formatPrice,timeAgo } from "@/lib/format";
+import { useEffect,useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 interface Props {
@@ -15,10 +18,12 @@ export default function PostCard({ post }: Props) {
   const [draft, setDraft] = useState("");
   const [contactOpen, setContactOpen] = useState(false);
 
-  const toggleLike = () => {
-    setLiked((p) => !p);
-    setLikes((n) => (liked ? n - 1 : n + 1));
-  };
+  const user=getUser();
+  const [busy,setBusy]=useState(false);
+  useEffect(()=>setLikes(post.likes),[post.likes]);
+  useEffect(()=>{if(!user)return;return subscribePostLike(post.id,user.id,setLiked);},[post.id,user?.id]);
+  useEffect(()=>{if(!showComments)return;return subscribeComments(post.id,rows=>setComments(rows.map(row=>({id:row.id,author:row.authorName,initial:row.authorInitial,text:row.text,postedAt:row.createdAt?.toDate?.()??new Date()}))),()=>toast.error("Could not load comments."));},[post.id,showComments]);
+  const toggleLike=async()=>{if(!user){toast.error("Sign in to like a post.");return;}if(busy)return;setBusy(true);try{await setPostLiked(post.id,user.id,!liked);}catch{toast.error("Could not save your like.");}finally{setBusy(false);}};
 
   const onShare = async () => {
     const url = `${window.location.origin}/feed#${post.id}`;
@@ -34,16 +39,7 @@ export default function PostCard({ post }: Props) {
     }
   };
 
-  const submitComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = draft.trim();
-    if (!text) return;
-    setComments((c) => [
-      ...c,
-      { id: `c${Date.now()}`, author: "You", initial: "Y", text, postedAt: new Date() },
-    ]);
-    setDraft("");
-  };
+  const submitComment=async(e:React.FormEvent)=>{e.preventDefault();if(!user){toast.error("Sign in to comment.");return;}if(!draft.trim()||busy)return;setBusy(true);try{await addComment(post.id,{authorId:user.id,authorName:user.name,authorInitial:user.name.charAt(0),text:draft.trim()});setDraft("");}catch{toast.error("Could not save your comment.");}finally{setBusy(false);}};
 
   return (
     <article id={post.id} className="bg-card border border-border rounded-3xl shadow-soft overflow-hidden">
@@ -73,9 +69,7 @@ export default function PostCard({ post }: Props) {
             </p>
           </div>
         </div>
-        <button className="w-9 h-9 rounded-full hover:bg-foreground/5 grid place-items-center text-muted-foreground" aria-label="Post options">
-          <i className="fas fa-ellipsis" />
-        </button>
+
       </header>
 
       {/* Body */}
@@ -117,7 +111,7 @@ export default function PostCard({ post }: Props) {
           {likes}
         </span>
         <span>
-          {comments.length} comments · {post.shares} shares
+          {comments.length} loaded comments
         </span>
       </div>
 
@@ -174,9 +168,7 @@ export default function PostCard({ post }: Props) {
               <i className="fas fa-phone" /> Call
             </a>
           )}
-          <button className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground/5 text-foreground text-sm font-semibold hover:bg-foreground/10">
-            <i className="far fa-envelope" /> Message
-          </button>
+          <Link to={`/browse?q=${encodeURIComponent(post.author)}`} className="text-primary font-bold">View seller services</Link>
         </div>
       )}
 
@@ -194,8 +186,6 @@ export default function PostCard({ post }: Props) {
                   <p className="text-sm text-foreground/90">{c.text}</p>
                 </div>
                 <div className="px-3 mt-1 text-[11px] text-muted-foreground flex gap-3">
-                  <button className="hover:text-foreground">Like</button>
-                  <button className="hover:text-foreground">Reply</button>
                   <span>{timeAgo(c.postedAt)}</span>
                 </div>
               </div>
@@ -208,12 +198,14 @@ export default function PostCard({ post }: Props) {
             </div>
             <div className="flex-1 relative">
               <input
+                maxLength={2000}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="Write a comment…"
                 className="w-full bg-muted rounded-full pl-4 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
               <button
+                disabled={busy}
                 type="submit"
                 className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full grid place-items-center text-primary hover:bg-primary/10"
                 aria-label="Send comment"

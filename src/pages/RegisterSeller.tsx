@@ -1,8 +1,10 @@
-import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
-import { signUpSeller } from "@/lib/auth";
 import { useCategories } from "@/hooks/useCategories";
+import { getUser,signUpSeller } from "@/lib/auth";
+import { submitVerification } from "@/lib/firestore/workflows";
+import { validateUpload } from "@/lib/validation";
+import { FormEvent,useState } from "react";
+import { Link,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 type SellerType = "individual" | "business";
@@ -18,7 +20,7 @@ export default function RegisterSeller() {
   // captured on submit — a FormData read at step 3 only sees step 3's inputs.
   const [step1Data, setStep1Data] = useState({ name: "", email: "", phone: "", password: "" });
   const [step2Data, setStep2Data] = useState({
-    category: "", city: "", bio: "", businessName: "",
+    category: "", city: "", bio: "", businessName: "", experience:"", skills:"", brn:"", teamSize:"", website:"", address:"",
   });
 
   const totalSteps = 3;
@@ -37,7 +39,7 @@ export default function RegisterSeller() {
       const password = data.get("password") as string;
       const confirm = data.get("confirm") as string;
       if (!name || !email || !phone || !password) { toast.error("Please fill in all required fields."); return; }
-      if (password.length < 6) { toast.error("Password must be at least 6 characters."); return; }
+      if (password.length < 8) { toast.error("Password must be at least 8 characters."); return; }
       if (password !== confirm) { toast.error("Passwords don't match."); return; }
       setStep1Data({ name, email, phone, password });
       next();
@@ -49,9 +51,9 @@ export default function RegisterSeller() {
       const bio = (data.get("bio") as string) ?? "";
       const businessName = (data.get("businessName") as string) ?? "";
       // Businesses give an address rather than a city field
-      const city = (data.get("city") as string) || (data.get("address") as string) || "Colombo";
+      const city = (data.get("city") as string) || "Colombo";
       if (!category) { toast.error("Please select a primary category."); return; }
-      setStep2Data({ category, city, bio, businessName });
+      setStep2Data({ category, city, bio, businessName, experience:String(data.get("experience") ?? ""), skills:String(data.get("skills") ?? ""), brn:String(data.get("brn") ?? ""), teamSize:String(data.get("teamSize") ?? ""), website:String(data.get("website") ?? ""), address:String(data.get("address") ?? "") });
       next();
       return;
     }
@@ -67,9 +69,14 @@ export default function RegisterSeller() {
       setStep(2);
       return;
     }
+    try {
+      const keys = type === "business" ? ["brnDoc","ownerId"] : ["idFront","idBack","selfie"];
+      for (const key of keys) { const file=data.get(key); if (!(file instanceof File) || !file.size) throw new Error("Upload all required verification documents."); validateUpload(file); }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Check your documents."); return; }
     setLoading(true);
     try {
-      await signUpSeller({
+      const existing=getUser();
+      if (!existing || existing.email.toLowerCase() !== step1Data.email.trim().toLowerCase()) await signUpSeller({
         name: step1Data.name,
         email: step1Data.email,
         phone: step1Data.phone,
@@ -80,7 +87,8 @@ export default function RegisterSeller() {
         sellerType: type,
         businessName: step2Data.businessName || undefined,
       });
-      toast.success("Application submitted! Our admin team will verify you within 24h.");
+      await submitVerification(data,{sellerType:type,businessRegistration:step2Data.brn,experience:step2Data.experience,skills:step2Data.skills,teamSize:step2Data.teamSize,website:step2Data.website,address:step2Data.address,taxNumber:String(data.get("tin") ?? "")});
+      toast.success("Application and documents saved for review. Check your email to verify ownership.");
       navigate("/dashboard/seller");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed.";
@@ -119,13 +127,13 @@ export default function RegisterSeller() {
         {step === 1 && (
           <>
             <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Full name" name="name" placeholder="Saman Perera" icon="fa-user" required />
-              <Field label="Phone" name="phone" placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
+              <Field label="Full name" name="name" defaultValue={step1Data.name} placeholder="Saman Perera" icon="fa-user" required />
+              <Field label="Phone" name="phone" defaultValue={step1Data.phone} placeholder="+94 77 123 4567" icon="fa-phone" type="tel" required />
             </div>
-            <Field label="Email" name="email" placeholder="you@example.com" icon="fa-envelope" type="email" required />
+            <Field label="Email" name="email" defaultValue={step1Data.email} placeholder="you@example.com" icon="fa-envelope" type="email" required />
             <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Password" name="password" placeholder="••••••••" icon="fa-lock" type="password" required />
-              <Field label="Confirm password" name="confirm" placeholder="••••••••" icon="fa-lock" type="password" required />
+              <Field label="Password" name="password" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
+              <Field label="Confirm password" name="confirm" defaultValue={step1Data.password} placeholder="••••••••" icon="fa-lock" type="password" required />
             </div>
           </>
         )}
@@ -146,19 +154,19 @@ export default function RegisterSeller() {
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </SelectField>
-              <Field label="Years of experience" name="experience" placeholder="3" icon="fa-clock" type="number" min={0} required />
+              <Field label="Years of experience" name="experience" defaultValue={step2Data.experience} placeholder="3" icon="fa-clock" type="number" min={0} required />
             </div>
-            <Field label="City" name="city" placeholder="Colombo" icon="fa-location-dot" required />
-            <TextareaField label="About you" name="bio" rows={4} placeholder="Tell buyers what makes your service special..." icon="fa-pen" required />
-            <Field label="Skills (comma separated)" name="skills" placeholder="Plumbing, Pipe fitting, Leak repair" icon="fa-tags" required />
+            <Field label="City" name="city" defaultValue={step2Data.city} placeholder="Colombo" icon="fa-location-dot" required />
+            <TextareaField label="About you" name="bio" defaultValue={step2Data.bio} rows={4} placeholder="Tell buyers what makes your service special..." icon="fa-pen" required />
+            <Field label="Skills (comma separated)" name="skills" defaultValue={step2Data.skills} placeholder="Plumbing, Pipe fitting, Leak repair" icon="fa-tags" required />
           </>
         )}
 
         {step === 2 && type === "business" && (
           <>
             <div className="grid md:grid-cols-2 gap-4">
-              <Field label="Business name" name="businessName" placeholder="Lanka Home Services (Pvt) Ltd" icon="fa-building" required />
-              <Field label="Business reg. number" name="brn" placeholder="PV 12345" icon="fa-file-contract" required />
+              <Field label="Business name" name="businessName" defaultValue={step2Data.businessName} placeholder="Lanka Home Services (Pvt) Ltd" icon="fa-building" required />
+              <Field label="Business reg. number" name="brn" defaultValue={step2Data.brn} placeholder="PV 12345" icon="fa-file-contract" required />
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <SelectField
@@ -174,7 +182,7 @@ export default function RegisterSeller() {
                   <option key={c.id} value={c.name}>{c.name}</option>
                 ))}
               </SelectField>
-              <SelectField label="Team size" name="teamSize" icon="fa-people-group" required>
+              <SelectField label="Team size" name="teamSize" defaultValue={step2Data.teamSize} icon="fa-people-group" required>
                 <option value="">Select size</option>
                 <option>1-5</option>
                 <option>6-20</option>
@@ -182,9 +190,10 @@ export default function RegisterSeller() {
                 <option>50+</option>
               </SelectField>
             </div>
-            <Field label="Business address" name="address" placeholder="123 Galle Rd, Colombo 03" icon="fa-location-dot" required />
-            <Field label="Website (optional)" name="website" placeholder="https://yourbusiness.lk" icon="fa-globe" type="url" />
-            <TextareaField label="About your business" name="bio" rows={4} placeholder="What does your business do?" icon="fa-pen" required />
+            <Field label="District" name="city" defaultValue={step2Data.city} placeholder="Colombo" icon="fa-location-dot" required />
+            <Field label="Business address" name="address" defaultValue={step2Data.address} placeholder="123 Galle Rd, Colombo 03" icon="fa-location-dot" required />
+            <Field label="Website (optional)" name="website" defaultValue={step2Data.website} placeholder="https://yourbusiness.lk" icon="fa-globe" type="url" />
+            <TextareaField label="About your business" name="bio" defaultValue={step2Data.bio} rows={4} placeholder="What does your business do?" icon="fa-pen" required />
           </>
         )}
 
@@ -195,7 +204,7 @@ export default function RegisterSeller() {
               <div className="text-sm">
                 <div className="font-bold text-foreground">Verification keeps Needlyy trusted</div>
                 <p className="text-muted-foreground mt-1">
-                  Your documents are reviewed within 24h by our admin team. They are stored encrypted and never shown publicly.
+                  Your documents are private. Our admin team reviews them before granting seller verification.
                 </p>
               </div>
             </div>
@@ -384,7 +393,8 @@ function FileField({ label, name, icon }: { label: string; name: string; icon: s
           id={name}
           name={name}
           type="file"
-          accept="image/*,.pdf"
+          accept="image/jpeg,image/png,application/pdf"
+          required={!name.includes("taxDoc")}
           className="sr-only"
           onChange={(e) => setFilename(e.target.files?.[0]?.name ?? null)}
         />

@@ -1,18 +1,18 @@
-import ServiceImage from "@/components/ServiceImage";
-import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
+import ServiceImage from "@/components/ServiceImage";
+import { useSaved } from "@/hooks/useSaved";
 import { useService } from "@/hooks/useService";
 import { useServices } from "@/hooks/useServices";
-import { formatPrice, timeAgo } from "@/lib/format";
-import { addBooking, generateId } from "@/lib/store";
-import { addNotification } from "@/components/NotificationsDropdown";
-import { toast } from "sonner";
-import { usePageTitle } from "@/lib/usePageTitle";
-import { getSaved, toggleSaved } from "@/lib/saved";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { addFirestoreBooking } from "@/lib/firestore/bookings";
-import { getUser } from "@/lib/auth";
+import { createConversation,findExistingConversation } from "@/lib/firestore/conversations";
+import { formatPrice,timeAgo } from "@/lib/format";
+import { generateId } from "@/lib/store";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useState } from "react";
+import { Link,useNavigate,useParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const BOOKING_EXTRA_FIELDS: Record<string, { label: string; placeholder: string }[]> = {
   "Vehicle Service": [
@@ -72,14 +72,9 @@ export default function ServiceDetail() {
     service ? `Book ${service.title} by ${service.seller} on Needlyy. Starting from ${service.price > 0 ? `Rs. ${service.price.toLocaleString()}` : "negotiable"}. Verified seller in ${service.location}.` : undefined
   );
 
-  const [saved, setSaved] = useState(() => service ? getSaved().includes(service.id) : false);
-
-  const handleSave = () => {
-    if (!service) return;
-    const isNowSaved = toggleSaved(service.id);
-    setSaved(isNowSaved);
-    toast.success(isNowSaved ? "Saved! Find it in your Saved Sellers." : "Removed from saved.");
-  };
+  const {isSaved,toggle}=useSaved();
+  const saved=service ? isSaved(service.id) : false;
+  const handleSave=async()=>{if(!service)return;try{const result=await toggle(service.id);toast.success(result?"Service saved.":"Service removed from saved.");}catch{toast.error("Could not update saved services.");}};
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -117,6 +112,9 @@ export default function ServiceDetail() {
 
   const validateAndConfirm = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!getUser()) { navigate("/login?redirect=" + encodeURIComponent(`/service/${service.id}`)); return; }
+    if (getUser()?.id === service.sellerId) { toast.error("You cannot book your own service."); return; }
+    if (date && date < new Date().toLocaleDateString("en-CA")) { toast.error("Choose today or a future date."); return; }
     if (!name.trim()) { toast.error("Please enter your name."); return; }
     if (!phone.trim() || !SL_PHONE_RE.test(phone.replace(/\s/g, ""))) {
       toast.error("Enter a valid Sri Lankan number, e.g. +94 77 123 4567");
@@ -125,6 +123,17 @@ export default function ServiceDetail() {
     if (!date) { toast.error("Please choose a preferred date."); return; }
     if (!agreed) { toast.error("Please agree to the booking terms."); return; }
     setShowConfirm(true);
+  };
+
+  const messageSeller = async () => {
+    const user=getUser();
+    if(!user){navigate("/login?redirect="+encodeURIComponent(`/service/${service.id}`));return;}
+    if(!service.sellerId||user.id===service.sellerId){toast.error("Choose another seller to start a conversation.");return;}
+    try {
+      const existing=await findExistingConversation(user.id,service.sellerId,service.id);
+      const id=existing?.id ?? await createConversation({participants:[user.id,service.sellerId],buyerId:user.id,sellerId:service.sellerId,buyerName:user.name,buyerInitial:user.name.charAt(0),sellerName:service.seller,sellerInitial:service.sellerInitial,serviceId:service.id,serviceName:service.title,lastMessage:"",unreadBuyer:0,unreadSeller:0});
+      navigate(`/dashboard/buyer/inbox?conversation=${encodeURIComponent(id)}`);
+    }catch{toast.error("Could not start a conversation.");}
   };
 
   const handleBooking = async () => {
@@ -139,7 +148,7 @@ export default function ServiceDetail() {
       category: service.category,
       categoryIcon: service.categoryIcon,
       vendorName: service.seller,
-      vendorPhone: service.sellerPhone ?? "+94771234567",
+      vendorPhone: service.sellerPhone ?? "",
       vendorInitial: service.sellerInitial,
       vendorVerified: service.sellerVerified ?? false,
       customerName: name,
@@ -154,27 +163,12 @@ export default function ServiceDetail() {
       createdAt: new Date().toISOString(),
     };
     try {
-      // Always write to localStorage
-      addBooking(bookingData);
-      // Dual-write to Firestore if configured
-      if (isFirebaseConfigured && currentUser) {
-        await addFirestoreBooking({
-          ...bookingData,
-          buyerId: currentUser.id,
-          sellerId: service.sellerId ?? service.id,
-        });
-      }
-      addNotification({
-        type: "booking_new",
-        title: "Booking Request Sent",
-        body: `Your request for "${service.title}" has been sent to ${service.seller}.`,
-        link: `/booking/confirm/${bookingId}`,
-      });
+      if (!isFirebaseConfigured || !currentUser || !service.sellerId) throw new Error("Please sign in and try again when the database is available.");
+      await addFirestoreBooking({ ...bookingData, buyerId: currentUser.id, sellerId: service.sellerId });
       navigate(`/booking/confirm/${bookingId}`);
     } catch (err) {
       console.error("Booking error:", err);
-      // Still navigate — localStorage write succeeded
-      navigate(`/booking/confirm/${bookingId}`);
+      toast.error(err instanceof Error ? err.message : "Could not save your booking. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -183,6 +177,7 @@ export default function ServiceDetail() {
   return (
     <AppShell fullBleed>
       <div className="pb-10">
+        <div className="container mx-auto px-4 pt-4"><button onClick={()=>void messageSeller()} className="rounded-xl border px-5 py-3 text-primary font-bold">Message this seller</button></div>
         {/* Breadcrumb */}
         <div className="container mx-auto px-4 py-4">
           <nav className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">

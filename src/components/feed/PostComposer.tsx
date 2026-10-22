@@ -1,10 +1,10 @@
+import { useCategories } from "@/hooks/useCategories";
+import { getUser } from "@/lib/auth";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { addFeedPost } from "@/lib/firestore/feed";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { getUser } from "@/lib/auth";
-import { useCategories } from "@/hooks/useCategories";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import { addFeedPost } from "@/lib/firestore/feed";
 
 export default function PostComposer() {
   const { categories } = useCategories();
@@ -39,29 +39,7 @@ export default function PostComposer() {
           description: desc.trim(),
           ...(price ? { price: Number(price) } : {}),
         });
-      } else {
-        const existing = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
-        existing.unshift({
-          id: `user_${Date.now()}`,
-          author: user.name,
-          initial: initial ?? "U",
-          role: "Individual Seller" as const,
-          verified: false,
-          location: user.district ?? "Sri Lanka",
-          category: category || "General",
-          categoryIcon: "fa-tag",
-          postedAt: new Date().toISOString(),
-          title: title.trim(),
-          description: desc.trim(),
-          price: price ? Number(price) : undefined,
-          tags: [],
-          likes: 0,
-          shares: 0,
-          comments: [],
-        });
-        localStorage.setItem("needly_feed_posts", JSON.stringify(existing));
-        window.dispatchEvent(new Event("needly-feed-change"));
-      }
+      } else { throw new Error("Publishing requires a database connection."); }
 
       toast.success("Post published! Buyers can now discover your service.");
       setOpen(false);

@@ -1,0 +1,10 @@
+import {readFileSync} from "node:fs";
+import {before,after,test} from "node:test";
+import {initializeTestEnvironment,assertSucceeds,assertFails} from "@firebase/rules-unit-testing";
+import {ref,uploadBytes,getBytes} from "firebase/storage";
+let env;
+before(async()=>{env=await initializeTestEnvironment({projectId:"demo-needly-audit",storage:{host:"127.0.0.1",port:9198,rules:readFileSync("storage.rules","utf8")}});});
+after(async()=>env?.cleanup());
+test("owner can upload private identity documents, other users cannot read them",async()=>{const owner=env.authenticatedContext("seller").storage();const path="verifications/seller/id";await assertSucceeds(uploadBytes(ref(owner,path),new Uint8Array([1,2,3]),{contentType:"image/jpeg"}));await assertSucceeds(getBytes(ref(owner,path)));await assertFails(getBytes(ref(env.authenticatedContext("other").storage(),path)));await assertFails(getBytes(ref(env.unauthenticatedContext().storage(),path)));});
+test("private upload cannot overwrite another owner or accept SVG and oversized files",async()=>{const owner=env.authenticatedContext("seller").storage();await assertFails(uploadBytes(ref(owner,"verifications/other/id"),new Uint8Array([1]),{contentType:"image/jpeg"}));await assertFails(uploadBytes(ref(owner,"verifications/seller/svg"),new Uint8Array([1]),{contentType:"image/svg+xml"}));await assertFails(uploadBytes(ref(owner,"verifications/seller/large"),new Uint8Array(6*1024*1024),{contentType:"application/pdf"}));});
+test("avatars permit only owned image uploads and suspended claims block writes",async()=>{const owner=env.authenticatedContext("seller").storage();await assertSucceeds(uploadBytes(ref(owner,"avatars/seller"),new Uint8Array([1]),{contentType:"image/png"}));await assertFails(uploadBytes(ref(env.authenticatedContext("other").storage(),"avatars/seller"),new Uint8Array([1]),{contentType:"image/png"}));await assertFails(uploadBytes(ref(env.authenticatedContext("seller",{suspended:true}).storage(),"avatars/seller"),new Uint8Array([1]),{contentType:"image/png"}));});

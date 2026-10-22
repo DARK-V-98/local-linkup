@@ -1,11 +1,14 @@
-import { useState, useRef } from "react";
+import AccountSecurity from "@/components/auth/AccountSecurity";
+import NotificationSettings from "@/components/auth/NotificationSettings";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getUser, setUser } from "@/lib/auth";
 import { SL_DISTRICTS } from "@/data/catalog";
-import { toast } from "sonner";
-import { isFirebaseConfigured, storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getUser,setUser } from "@/lib/auth";
+import { isFirebaseConfigured,storage } from "@/lib/firebase";
 import { updateUserProfile } from "@/lib/firestore/users";
+import { validateUpload } from "@/lib/validation";
+import { getDownloadURL,ref,uploadBytes } from "firebase/storage";
+import { useRef,useState } from "react";
+import { toast } from "sonner";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -37,11 +40,13 @@ export default function BuyerSettings() {
     promo: false,
     whatsapp: true,
     email: true,
+    ...user?.notificationPreferences,
   });
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    try { validateUpload(file,2,false); } catch(error) { toast.error(error instanceof Error ? error.message : "Invalid image."); return; }
     if (file.size > 2 * 1024 * 1024) { toast.error("Image must be under 2MB."); return; }
     setUploading(true);
     try {
@@ -50,14 +55,10 @@ export default function BuyerSettings() {
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
         setAvatarUrl(url);
-        setUser({ ...user, avatarUrl: url });
         await updateUserProfile(user.id, { avatarUrl: url });
+        setUser({ ...user, avatarUrl: url });
         toast.success("Photo updated!");
-      } else {
-        // Local preview only for demo accounts
-        const url = URL.createObjectURL(file);
-        setAvatarUrl(url);
-        toast.success("Photo updated (local preview).");
+      } else { throw new Error("Please sign in and reconnect before uploading.");
       }
     } catch {
       toast.error("Failed to upload photo. Please try again.");
@@ -72,15 +73,13 @@ export default function BuyerSettings() {
       if (user) {
         const updates = {
           name: profile.name,
-          email: profile.email,
           phone: profile.phone,
           district: profile.district,
           bio: profile.bio,
         };
+        if (!isFirebaseConfigured) throw new Error("Database is unavailable.");
+        await updateUserProfile(user.id, updates);
         setUser({ ...user, ...updates });
-        if (isFirebaseConfigured) {
-          await updateUserProfile(user.id, updates);
-        }
         window.dispatchEvent(new Event("needly-auth-change"));
       }
       toast.success("Profile updated.");
@@ -145,7 +144,7 @@ export default function BuyerSettings() {
                 <SettingsField label="Full Name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} placeholder="Your name" icon="fa-user" />
                 <SettingsField label="Phone / WhatsApp" value={profile.phone} onChange={(v) => setProfile({ ...profile, phone: v })} placeholder="+94 77 123 4567" icon="fa-phone" />
               </div>
-              <SettingsField label="Email" value={profile.email} onChange={(v) => setProfile({ ...profile, email: v })} placeholder="you@example.com" icon="fa-envelope" type="email" />
+              <SettingsField label="Email" value={profile.email} onChange={() => toast.info("Your sign-in email is managed by Firebase Authentication.")} placeholder="you@example.com" icon="fa-envelope" type="email" />
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">District</label>
                 <div className="relative">
@@ -198,85 +197,10 @@ export default function BuyerSettings() {
         </div>
       )}
 
-      {tab === "notifications" && (
-        <div className="max-w-xl space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6">
-            <h3 className="font-black text-slate-900 mb-5">Notify me when...</h3>
-            <div className="space-y-4">
-              {[
-                { key: "bookingConfirmed", label: "Booking confirmed by seller", desc: "When a pro accepts your booking" },
-                { key: "bookingComplete", label: "Job marked as complete", desc: "Reminder to leave a review" },
-                { key: "newQuotes", label: "New quote received", desc: "For requests you posted on the job board" },
-                { key: "promo", label: "Deals & promotions", desc: "Weekly offers from local sellers" },
-              ].map((item) => (
-                <label key={item.key} className="flex items-center justify-between gap-4 cursor-pointer">
-                  <div>
-                    <div className="text-sm font-bold text-slate-900">{item.label}</div>
-                    <div className="text-xs text-slate-400">{item.desc}</div>
-                  </div>
-                  <div
-                    onClick={() => setNotifs({ ...notifs, [item.key]: !notifs[item.key as keyof typeof notifs] })}
-                    className={`w-12 h-6 rounded-full transition cursor-pointer relative shrink-0 ${notifs[item.key as keyof typeof notifs] ? "bg-slate-900" : "bg-slate-200"}`}
-                  >
-                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifs[item.key as keyof typeof notifs] ? "left-7" : "left-1"}`} />
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-3xl border border-slate-200 p-6">
-            <h3 className="font-black text-slate-900 mb-5">How to reach me</h3>
-            <div className="space-y-4">
-              {[
-                { key: "whatsapp", label: "WhatsApp", icon: "fa-whatsapp fab" },
-                { key: "email", label: "Email", icon: "fa-envelope" },
-              ].map((item) => (
-                <label key={item.key} className="flex items-center gap-4 cursor-pointer">
-                  <span className="w-10 h-10 rounded-xl bg-slate-100 grid place-items-center text-slate-500 shrink-0">
-                    <i className={`${item.icon} text-sm`} />
-                  </span>
-                  <span className="flex-1 text-sm font-bold text-slate-900">{item.label}</span>
-                  <div
-                    onClick={() => setNotifs({ ...notifs, [item.key]: !notifs[item.key as keyof typeof notifs] })}
-                    className={`w-12 h-6 rounded-full transition cursor-pointer relative shrink-0 ${notifs[item.key as keyof typeof notifs] ? "bg-slate-900" : "bg-slate-200"}`}
-                  >
-                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${notifs[item.key as keyof typeof notifs] ? "left-7" : "left-1"}`} />
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-          <button onClick={() => toast.success("Preferences saved.")} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition">
-            Save Preferences
-          </button>
-        </div>
-      )}
+      {tab === "notifications" && <NotificationSettings />}
 
-      {tab === "security" && (
-        <div className="max-w-xl space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4">
-            <h3 className="font-black text-slate-900">Change Password</h3>
-            {["Current Password", "New Password", "Confirm New Password"].map((l) => (
-              <div key={l}>
-                <label className="text-sm font-semibold text-slate-700 block mb-1.5">{l}</label>
-                <div className="relative">
-                  <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
-                  <input type="password" placeholder="••••••••" className="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" />
-                </div>
-              </div>
-            ))}
-            <button onClick={() => toast.success("Password updated.")} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition">
-              Update Password
-            </button>
-          </div>
-          <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6">
-            <h3 className="font-black text-rose-700 mb-2">Danger Zone</h3>
-            <button onClick={() => toast.error("Please contact support to delete your account.")} className="px-4 py-2.5 rounded-xl bg-rose-600 text-white text-sm font-bold hover:bg-rose-700 transition">
-              <i className="fas fa-trash mr-1.5" /> Delete Account
-            </button>
-          </div>
-        </div>
-      )}
+      {tab === "security" && <AccountSecurity />}
+
     </DashboardShell>
   );
 }
@@ -290,7 +214,7 @@ function SettingsField({ label, value, onChange, placeholder, icon, type = "text
       <label className="block text-sm font-semibold text-slate-700 mb-1.5">{label}</label>
       <div className="relative">
         <i className={`fas ${icon} absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm`} />
-        <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        <input type={type} value={value} readOnly={type === "email"} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
           className="w-full border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white" />
       </div>
     </div>

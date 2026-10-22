@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from "react";
-import DashboardShell from "@/components/dashboard/DashboardShell";
-import { toast } from "sonner";
+﻿import DashboardShell from "@/components/dashboard/DashboardShell";
 import { isFirebaseConfigured } from "@/lib/firebase";
-import { subscribeToUsers, setUserStatus, type UserProfile } from "@/lib/firestore/users";
+import { setUserStatus,subscribeToUsers,type UserProfile } from "@/lib/firestore/users";
+import { useEffect,useState } from "react";
+import { toast } from "sonner";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -209,7 +209,7 @@ export default function AdminUsers() {
                         <i className={`fas ${user.status === "suspended" ? "fa-lock-open" : "fa-ban"}`} />
                       </button>
                       <button
-                        onClick={() => toast.info(`Viewing ${user.name}'s profile.`)}
+                        onClick={() => setSelected(user)}
                         className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white transition grid place-items-center text-xs"
                       >
                         <i className="fas fa-eye" />
@@ -281,7 +281,7 @@ export default function AdminUsers() {
                   {selected.status === "suspended" ? "Reactivate Account" : "Suspend Account"}
                 </button>
                 <button
-                  onClick={() => toast.info("Email sent to " + selected.email)}
+                  onClick={() => { window.location.href = "mailto:" + encodeURIComponent(selected.email); }}
                   className="w-full py-2.5 rounded-xl text-sm font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
                 >
                   <i className="fas fa-envelope mr-1.5" /> Send Email

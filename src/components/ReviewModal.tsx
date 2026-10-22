@@ -1,3 +1,6 @@
+import { getUser } from "@/lib/auth";
+import { getFirestoreBookingById } from "@/lib/firestore/bookings";
+import { addReview } from "@/lib/firestore/reviews";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -7,9 +10,10 @@ interface ReviewModalProps {
   vendorName: string;
   serviceName: string;
   bookingId: string;
+  onSubmitted?: () => void;
 }
 
-export default function ReviewModal({ open, onClose, vendorName, serviceName, bookingId }: ReviewModalProps) {
+export default function ReviewModal({ open, onClose, vendorName, serviceName, bookingId, onSubmitted }: ReviewModalProps) {
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [comment, setComment] = useState("");
@@ -23,13 +27,16 @@ export default function ReviewModal({ open, onClose, vendorName, serviceName, bo
 
   const STAR_LABELS = ["", "Poor", "Below Average", "Good", "Very Good", "Excellent"];
 
-  const submit = () => {
-    if (rating === 0) { toast.error("Please select a star rating."); return; }
+  const submit = async () => {
+    if (!rating) { toast.error("Select a star rating."); return; }
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setDone(true);
-    }, 1000);
+    try {
+      const user=getUser(); const booking=await getFirestoreBookingById(bookingId);
+      if (!user || !booking || booking.buyerId !== user.id || booking.status !== "completed") throw new Error("Only the buyer of a completed booking can review it.");
+      await addReview({bookingId,serviceId:booking.serviceId,sellerId:booking.sellerId,buyerId:user.id,author:user.name,initial:user.name.charAt(0),rating,text:[comment.trim(),tags.join(" · ")].filter(Boolean).join("\n")});
+      setDone(true); onSubmitted?.();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save your review."); }
+    finally { setSubmitting(false); }
   };
 
   const handleClose = () => {

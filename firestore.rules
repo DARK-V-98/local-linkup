@@ -1,200 +1,192 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ─── Helper functions ────────────────────────────────────────────────────
-
-    function isAuth() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function self(uid) { return signedIn() && request.auth.uid == uid; }
+    function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function active() { return signedIn() && profile().get('status', 'active') != 'suspended'; }
+    // Email ownership is required; merely registering someone else's email grants nothing.
+    function developer() { return signedIn() && request.auth.token.email_verified == true && request.auth.token.email == 'tikfese@gmail.com'; }
+    function admin() { return active() && (developer() || profile().role == 'admin'); }
+    function seller() { return active() && profile().role == 'seller'; }
+    function changedOnly(fields) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields); }
+    function text(value, max) { return value is string && value.size() > 0 && value.size() <= max; }
+    function registrationOpen(role) {
+      let path = /databases/$(database)/documents/settings/platform;
+      return !exists(path) || (get(path).data.get('registrationOpen', true) == true && (role != 'seller' || get(path).data.get('newSellerApplications', true) == true));
     }
-
-    function isSelf(uid) {
-      return request.auth.uid == uid;
-    }
-
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    // The owner account. Derived from the verified Firebase Auth token, NOT
-    // from the user document — a client cannot forge its own token email.
-    function isDeveloper() {
-      return isAuth() && request.auth.token.email == 'tikfese@gmail.com';
-    }
-
-    // Developer outranks admin and is allowed anywhere admin is.
-    function isAdmin() {
-      return isDeveloper() || (isAuth() && getUserData().role == 'admin');
-    }
-
-    function isSeller() {
-      return isAuth() && getUserData().role == 'seller';
-    }
-
-    // True when a write leaves the privilege fields untouched. Without this,
-    // any signed-in user could promote themselves by writing role:'admin'
-    // to their own profile.
-    function keepsPrivileges() {
-      return !request.resource.data.diff(resource.data).affectedKeys()
-                .hasAny(['role', 'verified'])
-             || isDeveloper()
-             || (request.resource.data.role == resource.data.role
-                 && request.resource.data.verified == resource.data.verified);
-    }
-
-    // ─── Users ────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Anyone can read basic profiles (for service listings)
-      allow read: if isAuth();
-      // A new profile may not grant itself elevated privileges. The owner
-      // email is the sole exception — that is how developer access bootstraps.
-      allow create: if isAuth() && isSelf(uid)
-                    && (isDeveloper()
-                        || (request.resource.data.role in ['buyer', 'seller']
-                            && request.resource.data.verified == false));
-      // Users edit their own profile but cannot change role or verified status;
-      // admins and the developer can.
-      allow update: if isAuth()
-                    && ((isSelf(uid) && keepsPrivileges()) || isAdmin());
-      allow delete: if isAdmin();
-
-      // Saved services subcollection
-      match /saved/{serviceId} {
-        allow read, write: if isAuth() && isSelf(uid);
+      allow get: if self(uid) || admin();
+      allow list: if admin();
+      allow create: if self(uid) && registrationOpen(request.resource.data.role)
+        && request.resource.data.keys().hasOnly(['name','email','phone','role','district','verified','joinedAt','sellerCategory','bio','sellerType','businessName','avatarUrl','totalOrders','totalEarnings','createdAt','updatedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ['buyer','seller']
+        && request.resource.data.verified == false
+        && request.resource.data.totalOrders == 0 && request.resource.data.totalEarnings == 0
+        && text(request.resource.data.name, 100);
+      allow update: if (self(uid) && active()
+        && changedOnly(['name','phone','district','bio','sellerCategory','businessName','avatarUrl','website','facebook','instagram','availability','workDays','startTime','endTime','responseTime','notificationPreferences','updatedAt'])
+        && text(request.resource.data.name, 100))
+        || (admin() && resource.data.role != 'developer'
+          && changedOnly(['status','verified','updatedAt']))
+        || (developer() && changedOnly(['role','status','verified','updatedAt']) && request.resource.data.role in ['buyer','seller','admin']);
+      allow delete: if false; // Account/data deletion requires the trusted server retention workflow.
+      match /saved/{serviceId} { allow read, write: if self(uid) && active(); }
+      match /notifications/{notificationId} {
+        allow read: if self(uid) && active();
+        allow update: if self(uid) && active() && changedOnly(['read']) && request.resource.data.read is bool;
+        allow create, delete: if false;
       }
     }
-
-    // ─── Services ─────────────────────────────────────────────────────────────
+    match /verifications/{uid} {
+      allow read: if self(uid) || admin();
+      allow create: if self(uid) && seller() && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['status','idType','identityNumber','businessRegistration','taxNumber','documents','experience','skills','teamSize','website','address','submittedAt'])
+        && request.resource.data.documents is list && request.resource.data.documents.size() >= 2 && request.resource.data.documents.size() <= 3;
+      allow update: if (admin() && changedOnly(['status','notes','reviewedAt']))
+        || (self(uid) && seller() && resource.data.status in ['pending','rejected'] && request.resource.data.status == 'pending'
+          && changedOnly(['status','idType','identityNumber','businessRegistration','taxNumber','documents','experience','skills','teamSize','website','address','submittedAt'])
+          && request.resource.data.documents is list && request.resource.data.documents.size() >= 2 && request.resource.data.documents.size() <= 3);
+      allow delete: if false;
+    }
     match /services/{serviceId} {
-      // Public read (browse page)
-      allow read: if true;
-      // Sellers can create their own services
-      allow create: if isSeller()
-                    && request.resource.data.sellerId == request.auth.uid;
-      // Only the owning seller or admin can update/delete
-      allow update: if isAuth()
-                    && (resource.data.sellerId == request.auth.uid || isAdmin());
-      allow delete: if isAuth()
-                    && (resource.data.sellerId == request.auth.uid || isAdmin());
+      allow read: if resource.data.status == 'active' || (active() && (resource.data.sellerId == request.auth.uid || admin()));
+      allow create: if seller() && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.status in ['active','draft','paused']
+        && text(request.resource.data.title,200) && text(request.resource.data.description,10000)
+        && request.resource.data.price is number && request.resource.data.price > 0 && request.resource.data.price <= 10000000
+        && request.resource.data.rating == 0 && request.resource.data.reviewCount == 0
+        && request.resource.data.orders == 0 && request.resource.data.views == 0
+        && request.resource.data.sellerVerified == false
+        && !request.resource.data.keys().hasAny(['badge','badgeIcon']);
+      allow update: if admin() || (seller() && resource.data.sellerId == request.auth.uid
+        && changedOnly(['title','description','imageUrl','category','categoryIcon','price','priceUnit','type','tags','district','status','updatedAt'])
+        && request.resource.data.status in ['active','paused','draft']
+        && request.resource.data.price is number && request.resource.data.price > 0 && request.resource.data.price <= 10000000);
+      allow delete: if admin() || (seller() && resource.data.sellerId == request.auth.uid);
     }
-
-    // ─── Categories ───────────────────────────────────────────────────────────
-    match /categories/{categoryId} {
-      // Public read — the home page and seller registration need these
-      allow read: if true;
-      // Only admins curate the category list
-      allow write: if isAdmin();
-    }
-
-    // ─── Job requests (the "post a job" board) ────────────────────────────────
-    match /jobRequests/{requestId} {
-      // Public board — sellers browse it to find work
-      allow read: if true;
-      // Guests may post a request; a signed-in poster must own the record
-      allow create: if !("authorId" in request.resource.data)
-                    || (isAuth() && request.resource.data.authorId == request.auth.uid);
-      // The poster or an admin can edit/close it. Sellers responding may only
-      // bump the response counter.
-      allow update: if (isAuth() && (resource.data.authorId == request.auth.uid || isAdmin()))
-                    || request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['responses']);
-      allow delete: if isAuth()
-                    && (resource.data.authorId == request.auth.uid || isAdmin());
-    }
-
-    // ─── Bookings ─────────────────────────────────────────────────────────────
-    match /bookings/{bookingId} {
-      // Buyer or seller involved can read
-      allow read: if isAuth()
-                  && (resource.data.buyerId == request.auth.uid
-                      || resource.data.sellerId == request.auth.uid
-                      || isAdmin());
-      // Any authenticated user can create (as buyer)
-      allow create: if isAuth()
-                    && request.resource.data.buyerId == request.auth.uid;
-      // Only the seller or admin can update status
-      allow update: if isAuth()
-                    && (resource.data.sellerId == request.auth.uid
-                        || resource.data.buyerId == request.auth.uid
-                        || isAdmin());
-      allow delete: if isAdmin();
-    }
-
-    // ─── Disputes ─────────────────────────────────────────────────────────────
-    match /disputes/{disputeId} {
-      // Only the two parties and admins can see a dispute
-      allow read: if isAuth()
-                  && (resource.data.buyerId == request.auth.uid
-                      || resource.data.sellerId == request.auth.uid
-                      || isAdmin());
-      // A buyer raises the dispute against their own booking
-      allow create: if isAuth()
-                    && request.resource.data.buyerId == request.auth.uid;
-      // Parties can add messages; only admins change status or resolution
-      allow update: if isAdmin()
-                    || (isAuth()
-                        && (resource.data.buyerId == request.auth.uid
-                            || resource.data.sellerId == request.auth.uid)
-                        && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['messages']));
-      allow delete: if isAdmin();
-    }
-
-    // ─── Conversations ────────────────────────────────────────────────────────
-    match /conversations/{convoId} {
-      // Only participants can read conversations
-      allow read: if isAuth()
-                  && request.auth.uid in resource.data.participants;
-      // Any authenticated user can create a conversation
-      allow create: if isAuth()
-                    && request.auth.uid in request.resource.data.participants;
-      // Only participants can update (last message, unread counts, online status)
-      allow update: if isAuth()
-                    && request.auth.uid in resource.data.participants;
-      allow delete: if isAdmin();
-
-      // Messages subcollection
-      match /messages/{messageId} {
-        allow read: if isAuth()
-                    && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convoId)).data.participants;
-        allow create: if isAuth()
-                      && request.resource.data.senderId == request.auth.uid
-                      && request.auth.uid in get(/databases/$(database)/documents/conversations/$(convoId)).data.participants;
-        allow update: if false; // Messages are immutable
-        allow delete: if isAdmin();
+    match /categories/{id} { allow read: if true; allow write: if admin(); }
+    match /settings/platform { allow read: if true; allow write: if admin(); }
+    match /jobRequests/{id} {
+      allow read: if active(); // Contains the poster's contact details.
+      allow create: if active() && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.status == 'open' && request.resource.data.responses == 0
+        && request.resource.data.verified == profile().verified
+        && text(request.resource.data.title,200) && text(request.resource.data.description,5000);
+      allow update: if admin() || (active() && resource.data.authorId == request.auth.uid && changedOnly(['status']) && request.resource.data.status in ['open','closed']);
+      allow delete: if admin() || (active() && resource.data.authorId == request.auth.uid);
+      match /responses/{uid} {
+        allow read: if self(uid) || (active() && get(/databases/$(database)/documents/jobRequests/$(id)).data.authorId == request.auth.uid) || admin();
+        allow create: if self(uid) && seller() && text(request.resource.data.message,2000);
+        allow update, delete: if false;
       }
     }
-
-    // ─── Feed posts ───────────────────────────────────────────────────────────
-    match /feedPosts/{postId} {
+    match /bookings/{id} {
+      function party() { return active() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid); }
+      function bookingService() { return get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data; }
+      function transition() {
+        return (resource.data.status == 'pending' && request.resource.data.status in ['confirmed','cancelled'])
+          || (resource.data.status == 'confirmed' && request.resource.data.status in ['in_progress','cancelled'])
+          || (resource.data.status == 'in_progress' && request.resource.data.status in ['completed','cancelled']);
+      }
+      allow read: if party() || admin();
+      allow create: if active() && request.resource.data.keys().hasOnly(['id','serviceId','serviceTitle','category','categoryIcon','vendorName','vendorPhone','vendorInitial','vendorVerified','customerName','customerPhone','date','time','notes','extraData','price','district','status','createdAt','updatedAt','buyerId','sellerId','statusHistory'])
+        && request.resource.data.id == id && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId != request.auth.uid && request.resource.data.sellerId == bookingService().sellerId
+        && get(/databases/$(database)/documents/users/$(request.resource.data.sellerId)).data.get('status','active') != 'suspended'
+        && get(/databases/$(database)/documents/users/$(request.resource.data.sellerId)).data.get('availability','available') != 'away'
+        && bookingService().status == 'active' && request.resource.data.price == bookingService().price
+        && request.resource.data.serviceTitle == bookingService().title && request.resource.data.vendorName == bookingService().sellerName
+        && request.resource.data.status == 'pending'
+        && text(request.resource.data.customerName,100) && text(request.resource.data.customerPhone,30)
+        && request.resource.data.date is string && request.resource.data.date.size() == 10;
+      allow update: if (party() || admin()) && transition()
+        && changedOnly(['status','updatedAt','statusNote','cancelReason','completedAt','statusHistory'])
+        && (admin() || resource.data.sellerId == request.auth.uid || (request.resource.data.status == 'cancelled' && resource.data.status in ['pending','confirmed']))
+        // Paid cancellation must go through refund handling, not silently cancel funds.
+        && (!exists(/databases/$(database)/documents/payments/$(id)) || get(/databases/$(database)/documents/payments/$(id)).data.status != 'paid' || request.resource.data.status != 'cancelled');
+      allow delete: if false;
+    }
+    match /disputes/{id} {
+      function booking() { return get(/databases/$(database)/documents/bookings/$(request.resource.data.orderId)).data; }
+      allow read: if active() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid || admin());
+      allow create: if active() && request.resource.data.buyerId == request.auth.uid
+        && booking().buyerId == request.auth.uid && request.resource.data.sellerId == booking().sellerId
+        && request.resource.data.amount == booking().price && request.resource.data.status == 'open'
+        && request.resource.data.messages == [] && text(request.resource.data.description,5000);
+      allow update: if (admin() && changedOnly(['messages','status','resolution']))
+        || (active() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid)
+          && changedOnly(['messages']) && request.resource.data.messages is list
+          && request.resource.data.messages.size() == resource.data.messages.size() + 1
+          && request.resource.data.messages.hasAll(resource.data.messages)
+          && request.resource.data.messages[request.resource.data.messages.size()-1].from == (resource.data.buyerId == request.auth.uid ? 'buyer' : 'seller')
+          && text(request.resource.data.messages[request.resource.data.messages.size()-1].text,2000));
+      allow delete: if false;
+    }
+    match /conversations/{id} {
+      function party() { return active() && request.auth.uid in resource.data.participants; }
+      allow read: if party();
+      allow create: if active() && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.sellerId != request.auth.uid
+        && get(/databases/$(database)/documents/services/$(request.resource.data.serviceId)).data.sellerId == request.resource.data.sellerId
+        && request.resource.data.participants == [request.resource.data.buyerId,request.resource.data.sellerId]
+        && request.resource.data.unreadBuyer == 0 && request.resource.data.unreadSeller == 0;
+      allow update: if party() && changedOnly(['lastMessage','lastAt','unreadBuyer','unreadSeller','buyerOnline','sellerOnline']);
+      allow delete: if false;
+      match /messages/{messageId} {
+        function parent() { return get(/databases/$(database)/documents/conversations/$(id)).data; }
+        allow read: if active() && request.auth.uid in parent().participants;
+        allow create: if active() && request.auth.uid in parent().participants
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.from == (parent().buyerId == request.auth.uid ? 'buyer' : 'seller')
+          && text(request.resource.data.text,4000)
+          && request.resource.data.keys().hasOnly(['senderId','from','text','read','conversationId','sentAt']);
+        allow update, delete: if false;
+      }
+    }
+    match /feedPosts/{id} {
       allow read: if true;
-      allow create: if isAuth()
-                    && request.resource.data.authorId == request.auth.uid;
-      allow update: if isAuth()
-                    && (resource.data.authorId == request.auth.uid || isAdmin())
-                    || request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['likes', 'shares', 'comments']); // Allow reactions from anyone
-      allow delete: if isAuth()
-                    && (resource.data.authorId == request.auth.uid || isAdmin());
-
+      allow create: if active() && request.resource.data.authorId == request.auth.uid
+        && text(request.resource.data.title,200) && text(request.resource.data.description,5000)
+        && request.resource.data.likes == 0 && request.resource.data.comments == 0 && request.resource.data.shares == 0;
+      allow update: if active() && resource.data.authorId == request.auth.uid && changedOnly(['title','description','imageUrl','price']);
+      allow delete: if active() && (resource.data.authorId == request.auth.uid || admin());
+      match /likes/{uid} { allow read: if active(); allow create, delete: if self(uid) && active(); allow update: if false; }
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isAuth();
-        allow delete: if isAuth()
-                      && (resource.data.authorId == request.auth.uid || isAdmin());
+        allow create: if active() && request.resource.data.authorId == request.auth.uid && text(request.resource.data.text,2000);
+        allow delete: if active() && (resource.data.authorId == request.auth.uid || admin());
       }
     }
-
-    // ─── Reviews ──────────────────────────────────────────────────────────────
-    match /reviews/{reviewId} {
+    match /reviews/{id} {
+      function booking() { return get(/databases/$(database)/documents/bookings/$(id)).data; }
       allow read: if true;
-      allow create: if isAuth()
-                    && request.resource.data.buyerId == request.auth.uid;
-      allow update: if isAuth()
-                    && (resource.data.sellerId == request.auth.uid // seller reply
-                        || isAdmin());
-      allow delete: if isAdmin();
+      allow create: if active() && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.bookingId == id && booking().buyerId == request.auth.uid
+        && booking().status == 'completed' && request.resource.data.serviceId == booking().serviceId
+        && request.resource.data.sellerId == booking().sellerId
+        && request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+        && !request.resource.data.keys().hasAny(['reply','repliedAt']);
+      allow update: if active() && resource.data.sellerId == request.auth.uid && changedOnly(['reply','repliedAt']) && text(request.resource.data.reply,2000);
+      allow delete: if admin();
     }
-
+    match /submissions/{id} {
+      allow create: if active() && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.kind in ['contact','overseas','emergency','newsletter','account_deletion','account_deactivation']
+        && request.resource.data.status == 'open' && request.resource.data.payload is map
+        && request.resource.data.keys().hasOnly(['kind','authorId','authorName','email','payload','status','createdAt']);
+      allow read: if admin() || (active() && resource.data.authorId == request.auth.uid);
+      allow update: if admin() && changedOnly(['status','notes','updatedAt']) && request.resource.data.status in ['open','in_progress','closed'];
+      allow delete: if false;
+    }
+    match /payments/{id} {
+      allow get: if active() && (admin() || get(/databases/$(database)/documents/bookings/$(id)).data.buyerId == request.auth.uid || get(/databases/$(database)/documents/bookings/$(id)).data.sellerId == request.auth.uid);
+      allow list: if active() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid || admin());
+      allow write: if false;
+    }
+    match /balances/{uid} { allow read: if self(uid) || admin(); allow write: if false; }
+    match /payouts/{id} { allow read: if active() && (resource.data.sellerId == request.auth.uid || admin()); allow write: if false; }
   }
 }

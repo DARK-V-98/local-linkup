@@ -1,19 +1,20 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { StoredBooking } from "@/lib/store";
+import {
+arrayUnion,
+collection,
+doc,
+getDoc,
+getDocs,
+onSnapshot,
+orderBy,
+query,
+runTransaction,
+serverTimestamp,
+setDoc,
+where,
+type Timestamp
+} from "firebase/firestore";
 
 export const BOOKINGS_COL = "bookings";
 
@@ -25,6 +26,7 @@ export interface FirestoreBooking extends Omit<StoredBooking, "createdAt"> {
   statusNote?: string;
   cancelReason?: string;
   completedAt?: Timestamp;
+  buyerApprovedAt?: Timestamp;
 }
 
 // ── Writes ─────────────────────────────────────────────────────────────────────
@@ -32,11 +34,8 @@ export interface FirestoreBooking extends Omit<StoredBooking, "createdAt"> {
 export async function addFirestoreBooking(
   booking: Omit<FirestoreBooking, "createdAt" | "updatedAt">
 ): Promise<string> {
-  const ref = await addDoc(collection(db, BOOKINGS_COL), {
-    ...booking,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  const ref = doc(db, BOOKINGS_COL, booking.id);
+  await setDoc(ref, { ...booking, statusHistory: [{ status: "pending", at: new Date().toISOString() }], createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   return ref.id;
 }
 
@@ -53,7 +52,14 @@ export async function updateFirestoreBookingStatus(
   if (options.cancelReason) updates.cancelReason = options.cancelReason;
   if (status === "completed") updates.completedAt = serverTimestamp();
 
-  await updateDoc(doc(db, BOOKINGS_COL, id), updates);
+  await runTransaction(db, async tx => {
+    const ref = doc(db, BOOKINGS_COL, id);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("Booking not found.");
+    const transitions: Record<string, string[]> = { pending: ["confirmed", "cancelled"], confirmed: ["in_progress", "cancelled"], in_progress: ["completed", "cancelled"], completed: [], cancelled: [] };
+    if (!transitions[snap.data().status]?.includes(status)) throw new Error("This status change is no longer available. Refresh the order.");
+    tx.update(ref, { ...updates, statusHistory: arrayUnion({ status, at: new Date().toISOString() }) });
+  });
 }
 
 // ── Reads ──────────────────────────────────────────────────────────────────────
@@ -64,7 +70,7 @@ export async function getFirestoreBookingById(
   try {
     const snap = await getDoc(doc(db, BOOKINGS_COL, id));
     if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as FirestoreBooking;
+    return { ...snap.data(), id: snap.id } as FirestoreBooking;
   } catch {
     return null;
   }
@@ -79,7 +85,7 @@ export async function getBookingsByBuyer(
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreBooking));
 }
 
 export async function getBookingsBySeller(
@@ -91,7 +97,7 @@ export async function getBookingsBySeller(
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreBooking));
 }
 
 // ── Real-time subscriptions ────────────────────────────────────────────────────
@@ -107,7 +113,7 @@ export function subscribeToBookingsByBuyer(
     orderBy("createdAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreBooking)));
   }, onError);
 }
 
@@ -122,7 +128,7 @@ export function subscribeToBookingsBySeller(
     orderBy("createdAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreBooking)));
   }, onError);
 }
 
@@ -137,7 +143,11 @@ export function subscribeToAllBookings(
   const q = query(collection(db, BOOKINGS_COL), orderBy("createdAt", "desc"));
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreBooking))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreBooking))),
     (err) => onError?.(err)
   );
+}
+
+export function subscribeToBooking(id: string, callback: (booking: FirestoreBooking | null) => void, onError: (error: unknown) => void) {
+  return onSnapshot(doc(db, BOOKINGS_COL, id), snap => callback(snap.exists() ? { ...snap.data(), id: snap.id } as FirestoreBooking : null), onError);
 }

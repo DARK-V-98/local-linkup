@@ -1,17 +1,17 @@
-import {
-  collection,
-  addDoc,
-  doc,
-  updateDoc,
-  query,
-  orderBy,
-  limit,
-  onSnapshot,
-  serverTimestamp,
-  increment,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+addDoc,
+collection,
+doc,
+getDoc,
+limit,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+setDoc,
+type Timestamp
+} from "firebase/firestore";
 
 export const JOB_REQUESTS_COL = "jobRequests";
 
@@ -49,13 +49,20 @@ export async function addJobRequest(
   return ref.id;
 }
 
-export async function incrementJobResponses(id: string): Promise<void> {
-  await updateDoc(doc(db, JOB_REQUESTS_COL, id), { responses: increment(1) });
+export async function sendJobQuote(requestId:string,uid:string,name:string,message:string) {
+  if(!message.trim()||message.length>2000)throw new Error("Use 1–2,000 characters for your quote.");
+  const ref=doc(db,JOB_REQUESTS_COL,requestId,"responses",uid);
+  const existing=await getDoc(ref);if(existing.exists())throw new Error("You already submitted a quote for this job.");
+  await setDoc(ref,{sellerId:uid,sellerName:name,message:message.trim(),createdAt:serverTimestamp()});
+}
+export function subscribeJobQuotes(requestId:string,callback:(rows:{id:string;sellerName:string;message:string}[])=>void,onError:(error:unknown)=>void) {
+  return onSnapshot(collection(db,JOB_REQUESTS_COL,requestId,"responses"),snap=>callback(snap.docs.map(item=>({...item.data(),id:item.id}) as {id:string;sellerName:string;message:string})),onError);
 }
 
 export function subscribeToJobRequests(
   callback: (requests: FSJobRequest[]) => void,
-  n = 50
+  n = 50,
+  onError?: (error:unknown)=>void
 ): () => void {
   const q = query(
     collection(db, JOB_REQUESTS_COL),
@@ -63,6 +70,6 @@ export function subscribeToJobRequests(
     limit(n)
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSJobRequest)));
-  });
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSJobRequest)));
+  },onError);
 }

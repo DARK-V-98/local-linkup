@@ -1,24 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToBookingsByBuyer,
-  subscribeToBookingsBySeller,
-  updateFirestoreBookingStatus,
-  type FirestoreBooking,
+subscribeToBookingsByBuyer,
+subscribeToBookingsBySeller,
+updateFirestoreBookingStatus,
+type FirestoreBooking,
 } from "@/lib/firestore/bookings";
 import {
-  getBookings,
-  updateBookingStatus,
-  type StoredBooking,
+type StoredBooking,
 } from "@/lib/store";
-import { getUser } from "@/lib/auth";
+import { useCallback,useEffect,useState } from "react";
 
 type Booking = FirestoreBooking | StoredBooking;
 
 /**
  * Real-time bookings hook.
  * - Uses Firestore when Firebase is configured
- * - Falls back to localStorage otherwise
+ * - Requires a configured database for all writes.
  */
 export function useBookings(perspective?: "buyer" | "seller") {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -36,14 +34,7 @@ export function useBookings(perspective?: "buyer" | "seller") {
       return;
     }
 
-    if (!isFirebaseConfigured) {
-      // localStorage fallback
-      setBookings(getBookings());
-      setLoading(false);
-      const refresh = () => setBookings(getBookings());
-      window.addEventListener("needly-bookings-change", refresh);
-      return () => window.removeEventListener("needly-bookings-change", refresh);
-    }
+    if (!isFirebaseConfigured) { setBookings([]); setLoading(false); return; }
 
     let unsub: () => void;
     const timer = window.setTimeout(() => {
@@ -74,8 +65,7 @@ export function useBookings(perspective?: "buyer" | "seller") {
       if (isFirebaseConfigured) {
         await updateFirestoreBookingStatus(id, status, { note });
       } else {
-        updateBookingStatus(id, status);
-        setBookings(getBookings());
+        throw new Error("Database is unavailable.");
       }
     },
     []

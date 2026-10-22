@@ -1,14 +1,12 @@
-import { useState, useEffect } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, updateBookingStatus, StoredBooking } from "@/lib/store";
-import { formatPrice } from "@/lib/format";
-import { usePageTitle } from "@/lib/usePageTitle";
-import { toast } from "sonner";
-import { addNotification } from "@/components/NotificationsDropdown";
-import { isFirebaseConfigured } from "@/lib/firebase";
+import { useBookings } from "@/hooks/useBookings";
 import { tsToIso } from "@/lib/firestore/normalize";
-import { subscribeToBookingsBySeller } from "@/lib/firestore/bookings";
-import { getUser } from "@/lib/auth";
+import { formatPrice } from "@/lib/format";
+import { type StoredBooking } from "@/lib/store";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -49,72 +47,19 @@ const STATUS_LABELS: Record<string, string> = {
 export default function SellerOrders() {
   usePageTitle("My Orders");
   const [tab, setTab] = useState<TabKey>("all");
-  const [orders, setOrders] = useState<StoredBooking[]>([]);
+  const { bookings: rawBookings, loading, error, updateStatus } = useBookings("seller");
+  const orders: StoredBooking[] = rawBookings.map(b => ({ ...b, createdAt: tsToIso(b.createdAt) }));
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
 
-  const refresh = () => {
-    setOrders(getBookings());
+  const changeStatus = async (id: string, status: StoredBooking["status"]) => {
+    try { await updateStatus(id, status, status === "cancelled" ? declineReason : undefined); toast.success("Order status updated."); }
+    catch { toast.error("Could not update the order. Please try again."); }
   };
-
-  useEffect(() => {
-    const user = getUser();
-    if (isFirebaseConfigured && user) {
-      const unsub = subscribeToBookingsBySeller(user.id, (firestoreOrders) => {
-        const local = getBookings();
-        const fsIds = new Set(firestoreOrders.map((b) => b.id));
-        const normalized = firestoreOrders.map((b) => ({ ...b, createdAt: tsToIso(b.createdAt) }));
-        const merged = [...normalized, ...local.filter((b) => !fsIds.has(b.id))];
-        setOrders(merged);
-      });
-      return unsub;
-    } else {
-      refresh();
-      // Live cross-tab + same-tab sync for localStorage/demo mode
-      const onChange = () => refresh();
-      window.addEventListener("needly-bookings-change", onChange);
-      let bc: BroadcastChannel | undefined;
-      try {
-        bc = new BroadcastChannel("needly-sync");
-        bc.onmessage = (e) => { if (e.data?.type === "bookings-change") onChange(); };
-      } catch { /* BroadcastChannel unsupported */ }
-      window.addEventListener("storage", onChange);
-      return () => {
-        window.removeEventListener("needly-bookings-change", onChange);
-        window.removeEventListener("storage", onChange);
-        bc?.close();
-      };
-    }
-  }, []);
-
-  const changeStatus = (id: string, status: StoredBooking["status"]) => {
-    updateBookingStatus(id, status);
-    setOrders((prev) => prev.map((o) => o.id === id ? { ...o, status } : o));
-    const labels: Record<string, string> = {
-      confirmed: "Order accepted! Customer notified.",
-      in_progress: "Work started — customer knows you're on it.",
-      completed: "Order marked as completed!",
-      cancelled: "Order declined.",
-    };
-    toast.success(labels[status] ?? "Status updated.");
-    const order = orders.find((o) => o.id === id);
-    if (order) {
-      const notifMap: Partial<Record<StoredBooking["status"], { title: string; body: string }>> = {
-        confirmed: { title: "Order Accepted", body: `You accepted a booking for ${order.serviceTitle} from ${order.customerName}.` },
-        completed: { title: "Order Completed", body: `${order.serviceTitle} for ${order.customerName} marked as complete.` },
-        cancelled: { title: "Order Declined", body: `Booking for ${order.serviceTitle} was declined.` },
-      };
-      const n = notifMap[status];
-      if (n) addNotification({ type: "booking_confirmed", title: n.title, body: n.body, link: `/dashboard/seller/orders` });
-    }
-  };
-
-  const handleDecline = (id: string) => {
-    changeStatus(id, "cancelled");
-    setDecliningId(null);
-    setDeclineReason("");
+  const handleDecline = async (id: string) => {
+    await changeStatus(id, "cancelled"); setDecliningId(null); setDeclineReason("");
   };
 
   // Stats
@@ -135,6 +80,8 @@ export default function SellerOrders() {
 
   return (
     <DashboardShell role="Verified Seller" sidebarItems={sellerSidebarItems}>
+      {loading && <p role="status">Loading orders…</p>}
+      {error && <p role="alert" className="text-red-600">{error}</p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -357,6 +304,7 @@ export default function SellerOrders() {
                     {/* Action buttons */}
                     {!isDeclining && (
                       <div className="flex flex-wrap gap-2">
+                        <Link to={`/booking/confirm/${o.id}`} className="border rounded-xl px-4 py-2 font-bold text-xs text-primary">Payment & support details</Link>
                         <a
                           href={`https://wa.me/${o.customerPhone.replace(/\D/g, "")}?text=Hi ${o.customerName}, this is regarding your Needly booking (${o.id}) for ${o.serviceTitle}.`}
                           target="_blank"

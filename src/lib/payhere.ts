@@ -1,3 +1,4 @@
+import { getFunctions,httpsCallable } from "firebase/functions";
 // PayHere (Sri Lanka) payment gateway integration
 // Docs: https://support.payhere.lk/api-&-mobile-sdk/payhere-checkout
 
@@ -32,10 +33,6 @@ export interface PayHerePayment {
   hash?: string;
 }
 
-// Needly PayHere sandbox merchant ID
-const MERCHANT_ID = "1227138";
-const SANDBOX = true; // Set to false in production with real merchant ID
-
 export function loadPayHereSDK(): Promise<void> {
   return new Promise((resolve) => {
     if (window.payhere) { resolve(); return; }
@@ -68,32 +65,9 @@ export async function openPayHereCheckout(opts: CheckoutOptions): Promise<void> 
     return;
   }
 
-  const nameParts = opts.customerName.trim().split(" ");
-  const firstName = nameParts[0] || "Customer";
-  const lastName = nameParts.slice(1).join(" ") || "User";
-
+  const response=await httpsCallable<{bookingId:string},PayHerePayment>(getFunctions(undefined,"us-central1"),"createCheckout")({bookingId:opts.orderId});
   window.payhere.onCompleted = opts.onSuccess;
   window.payhere.onDismissed = opts.onDismissed;
   window.payhere.onError = opts.onError;
-
-  const payment: PayHerePayment = {
-    sandbox: SANDBOX,
-    merchant_id: MERCHANT_ID,
-    return_url: `${window.location.origin}/dashboard/buyer/payments`,
-    cancel_url: window.location.href,
-    notify_url: "https://needlyy.lk/api/payhere/notify", // server webhook (not active in demo)
-    order_id: opts.orderId,
-    items: opts.description,
-    amount: (opts.amount / 100).toFixed(2), // PayHere uses LKR decimals
-    currency: "LKR",
-    first_name: firstName,
-    last_name: lastName,
-    email: opts.customerEmail || "customer@needlyy.lk",
-    phone: opts.customerPhone.replace(/\D/g, "").slice(-10) || "0771234567",
-    address: opts.district,
-    city: opts.district,
-    country: "Sri Lanka",
-  };
-
-  window.payhere.pay(payment);
+  window.payhere.pay(response.data);
 }

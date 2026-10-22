@@ -1,16 +1,16 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  onSnapshot,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+collection,
+doc,
+getDocs,
+onSnapshot,
+orderBy,
+query,
+runTransaction,
+serverTimestamp,
+where,
+type Timestamp
+} from "firebase/firestore";
 
 export const REVIEWS_COL = "reviews";
 
@@ -36,9 +36,12 @@ export interface FSReview {
 export async function addReview(
   review: Omit<FSReview, "id" | "createdAt">
 ): Promise<string> {
-  const ref = await addDoc(collection(db, REVIEWS_COL), {
-    ...review,
-    createdAt: serverTimestamp(),
+  if (!review.bookingId) throw new Error("A completed booking is required.");
+  const ref = doc(db, REVIEWS_COL, review.bookingId);
+  await runTransaction(db, async tx => {
+    const existing=await tx.get(ref);
+    if (existing.exists()) throw new Error("You have already reviewed this booking.");
+    tx.set(ref,{...review,createdAt:serverTimestamp()});
   });
   return ref.id;
 }
@@ -65,7 +68,7 @@ export async function getReviewsByService(
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSReview));
 }
 
 export async function getReviewsBySeller(
@@ -77,7 +80,7 @@ export async function getReviewsBySeller(
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSReview));
 }
 
 // ── Real-time ──────────────────────────────────────────────────────────────────
@@ -92,7 +95,7 @@ export function subscribeToServiceReviews(
     orderBy("createdAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSReview)));
   });
 }
 
@@ -110,5 +113,5 @@ export async function getTopReviews(n = 3): Promise<FSReview[]> {
     limit(n)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSReview));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSReview));
 }

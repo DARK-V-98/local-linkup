@@ -1,10 +1,10 @@
-import { useMemo } from "react";
-import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { toast } from "sonner";
 import { useSaved } from "@/hooks/useSaved";
 import { useServices } from "@/hooks/useServices";
 import { formatPrice } from "@/lib/format";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const buyerSidebarItems = [
   { label: "Overview", to: "/dashboard/buyer", icon: "fa-house-user" },
@@ -175,13 +175,9 @@ export default function SavedSellers() {
           {/* Suggested section */}
           <div className="mt-10">
             <h3 className="font-black text-slate-900 mb-1">You might also like</h3>
-            <p className="text-xs text-slate-400 mb-4">Based on your saved sellers and booking history.</p>
+            <p className="text-xs text-slate-400 mb-4">More active services in the marketplace.</p>
             <div className="grid sm:grid-cols-3 gap-4">
-              {[
-                { name: "Ravi M.", category: "AC Technician", district: "Colombo", rating: 4.8, color: "from-cyan-500 to-blue-500" },
-                { name: "Amila N.", category: "Electrician", district: "Kandy", rating: 4.7, color: "from-amber-500 to-orange-500" },
-                { name: "Chami S.", category: "Event Catering", district: "Colombo", rating: 4.9, color: "from-pink-500 to-rose-500" },
-              ].map((s) => (
+              {services.filter(service=>!savedIds.has(service.id)).slice(0,3).map((service,index)=>({id:service.id,name:service.seller,category:service.category,district:service.district,rating:service.rating,color:CARD_COLORS[index%CARD_COLORS.length]})).map((s) => (
                 <div key={s.name} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 hover:border-slate-300 transition">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} text-white grid place-items-center font-black text-sm shrink-0`}>
                     {s.name[0]}
@@ -191,7 +187,7 @@ export default function SavedSellers() {
                     <div className="text-[11px] text-slate-400">{s.category} · {s.district}</div>
                     <div className="text-[11px] text-amber-500 font-bold"><i className="fas fa-star text-[9px] mr-0.5" />{s.rating}</div>
                   </div>
-                  <button onClick={() => toast.success(`${s.name} saved!`)} className="w-8 h-8 rounded-full border border-slate-200 text-slate-400 hover:text-rose-400 hover:border-rose-200 hover:bg-rose-50 transition grid place-items-center text-xs">
+                  <button onClick={() => void toggle(s.id).then(()=>toast.success("Service saved.")).catch(()=>toast.error("Could not save service."))} className="w-8 h-8 rounded-full border border-slate-200 text-slate-400 hover:text-rose-400 hover:border-rose-200 hover:bg-rose-50 transition grid place-items-center text-xs">
                     <i className="fas fa-heart" />
                   </button>
                 </div>

@@ -1,9 +1,9 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
-import { getUser, clearUser, AuthUser } from "@/lib/auth";
-import { getLang, setLang, LANG_LABELS, Lang } from "@/lib/lang";
-import { getBookings } from "@/lib/store";
 import NotificationsDropdown from "@/components/NotificationsDropdown";
+import { useBookings } from "@/hooks/useBookings";
+import { AuthUser,getUser,signOutFirebase } from "@/lib/auth";
+import { LANG_LABELS,Lang,getLang,setLang } from "@/lib/lang";
+import { useEffect,useRef,useState } from "react";
+import { Link,NavLink,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const navItems = [
@@ -46,7 +46,8 @@ export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [mobileQ, setMobileQ] = useState("");
-  const [pendingCount, setPendingCount] = useState(0);
+  const {bookings}=useBookings(user?.role === "seller" ? "seller" : "buyer");
+  const pendingCount=bookings.filter(booking=>booking.status==="pending").length;
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,16 +67,6 @@ export default function Header() {
     };
   }, []);
 
-  useEffect(() => {
-    const refresh = () => {
-      const bookings = getBookings();
-      setPendingCount(bookings.filter((b) => b.status === "pending").length);
-    };
-    refresh();
-    window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
-  }, []);
-
   // Close user menu on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -87,8 +78,8 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showUserMenu]);
 
-  const handleSignOut = () => {
-    clearUser();
+  const handleSignOut = async () => {
+    try { await signOutFirebase(); } catch { toast.error("Could not sign out."); return; }
     setUser(null);
     setShowUserMenu(false);
     setOpen(false);

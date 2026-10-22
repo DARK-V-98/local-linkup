@@ -1,23 +1,20 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+DEFAULT_CATEGORIES,
+type AdminCategory
+} from "@/lib/adminCategories";
+import { hasAdminAccess } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToCategories,
-  addFirestoreCategory,
-  updateFirestoreCategory,
-  deleteFirestoreCategory,
-  seedCategories,
-  type FirestoreCategory,
+addFirestoreCategory,
+deleteFirestoreCategory,
+seedCategories,
+subscribeToCategories,
+updateFirestoreCategory,
+type FirestoreCategory,
 } from "@/lib/firestore/categories";
-import { fetchCategoryCounts } from "@/lib/firestore/services";
-import {
-  getAdminCategories,
-  saveAdminCategories,
-  DEFAULT_CATEGORIES,
-  type AdminCategory,
-} from "@/lib/adminCategories";
-import { getMyServices } from "@/lib/store";
-import { hasAdminAccess } from "@/lib/auth";
 import { tsToIso } from "@/lib/firestore/normalize";
+import { fetchCategoryCounts } from "@/lib/firestore/services";
+import { useCallback,useEffect,useMemo,useState } from "react";
 
 interface UseCategoriesOptions {
   /** Include categories an admin has switched off. Admin screens want these. */
@@ -29,7 +26,7 @@ interface UseCategoriesOptions {
 /**
  * Single source of truth for service categories.
  * - Firestore (real-time, shared across every device) when Firebase is configured
- * - localStorage fallback otherwise
+ * - Database failures are surfaced without creating browser-only records.
  *
  * Seeds DEFAULT_CATEGORIES the first time the collection is found empty, so a
  * fresh deployment still has a usable category list for sellers to register under.
@@ -45,13 +42,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
 
   // ── Load ────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!useFirestore) {
-      setCategories(getAdminCategories());
-      setLoading(false);
-      const onChange = () => setCategories(getAdminCategories());
-      window.addEventListener("needly-categories-change", onChange);
-      return () => window.removeEventListener("needly-categories-change", onChange);
-    }
+    if (!useFirestore) { setCategories([]); setLoading(false); setError("Categories require a database connection."); return; }
 
     let seeding = false;
     let settled = false;
@@ -63,7 +54,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
     const fallbackTimer = window.setTimeout(() => {
       if (settled) return;
       settled = true;
-      setCategories(getAdminCategories());
+      setCategories([]);
       setLoading(false);
     }, 5000);
 
@@ -77,12 +68,12 @@ export function useCategories(options: UseCategoriesOptions = {}) {
           if (hasAdminAccess() && !seeding) {
             seeding = true;
             seedCategories(DEFAULT_CATEGORIES).catch(() => {
-              setCategories(getAdminCategories());
+              setCategories([]);
               setLoading(false);
             });
             return;
           }
-          setCategories(getAdminCategories());
+          setCategories([]);
           setLoading(false);
           return;
         }
@@ -92,7 +83,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       (err) => {
         settled = true;
         setError(err instanceof Error ? err.message : "Could not load categories.");
-        setCategories(getAdminCategories());
+        setCategories([]);
         setLoading(false);
       }
     );
@@ -109,11 +100,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
     let cancelled = false;
 
     if (!useFirestore) {
-      const local = getMyServices().reduce<Record<string, number>>((acc, s) => {
-        if (s.status === "active") acc[s.category] = (acc[s.category] ?? 0) + 1;
-        return acc;
-      }, {});
-      setCounts(local);
+      setCounts({});
       return;
     }
 
@@ -138,13 +125,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       if (useFirestore) {
         return await addFirestoreCategory({ ...cat, order });
       }
-      const next = [
-        ...getAdminCategories(),
-        { ...cat, order, id: `cat_${Date.now()}`, createdAt: new Date().toISOString() },
-      ];
-      saveAdminCategories(next);
-      setCategories(next);
-      return next[next.length - 1].id;
+      throw new Error("Category changes require a database connection.");
     },
     [categories.length, useFirestore]
   );
@@ -154,9 +135,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       await updateFirestoreCategory(id, updates);
       return;
     }
-    const next = getAdminCategories().map((c) => (c.id === id ? { ...c, ...updates } : c));
-    saveAdminCategories(next);
-    setCategories(next);
+    throw new Error("Category changes require a database connection.");
   }, [useFirestore]);
 
   const remove = useCallback(async (id: string) => {
@@ -164,9 +143,7 @@ export function useCategories(options: UseCategoriesOptions = {}) {
       await deleteFirestoreCategory(id);
       return;
     }
-    const next = getAdminCategories().filter((c) => c.id !== id);
-    saveAdminCategories(next);
-    setCategories(next);
+    throw new Error("Category changes require a database connection.");
   }, [useFirestore]);
 
   return { categories: visible, loading, error, add, update, remove };

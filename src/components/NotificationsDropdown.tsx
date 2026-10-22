@@ -1,34 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import { timeAgo } from "@/lib/format";
+import { useEffect,useRef,useState } from "react";
+import { Link } from "react-router-dom";
 
-export interface AppNotification {
-  id: string;
-  type: "booking_new" | "booking_confirmed" | "booking_completed" | "message" | "review";
-  title: string;
-  body: string;
-  link?: string;
-  createdAt: string;
-  read: boolean;
-}
-
-const NOTIF_KEY = "needly_notifications";
-
-export function getNotifications(): AppNotification[] {
-  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) ?? "[]"); } catch { return []; }
-}
-
-export function addNotification(n: Omit<AppNotification, "id" | "read" | "createdAt">) {
-  const all = getNotifications();
-  all.unshift({ ...n, id: Math.random().toString(36).slice(2), read: false, createdAt: new Date().toISOString() });
-  localStorage.setItem(NOTIF_KEY, JSON.stringify(all.slice(0, 50)));
-  window.dispatchEvent(new Event("needly-notifications-change"));
-}
-
-function markAllRead() {
-  const all = getNotifications().map((n) => ({ ...n, read: true }));
-  localStorage.setItem(NOTIF_KEY, JSON.stringify(all));
-}
+import { getNotifications,markNotificationsRead,type AppNotification } from "@/lib/notifications";
+export { getNotifications,type AppNotification };
+const markAllRead=()=>{void markNotificationsRead();};
 
 const NOTIF_ICONS: Record<AppNotification["type"], { icon: string; color: string }> = {
   booking_new: { icon: "fa-calendar-plus", color: "text-blue-500 bg-blue-50" },
@@ -111,9 +87,7 @@ export default function NotificationsDropdown() {
                   {...(n.link ? { to: n.link } : {})}
                   onClick={() => {
                     if (!n.read) {
-                      const all = getNotifications().map((x) => x.id === n.id ? { ...x, read: true } : x);
-                      localStorage.setItem(NOTIF_KEY, JSON.stringify(all));
-                      refresh();
+                      void markNotificationsRead(n.id);
                     }
                     if (n.link) setOpen(false);
                   }}

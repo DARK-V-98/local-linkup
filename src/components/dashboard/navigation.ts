@@ -1,4 +1,4 @@
-import { Home, ShoppingBag, Heart, CreditCard, Settings, BarChart3, Briefcase, MessageSquare, Wallet, Users, Store, Layers, Tags, ShieldCheck, CircleAlert, FileBarChart, type LucideIcon } from "lucide-react";
+import { BarChart3,Briefcase,CircleAlert,CreditCard,FileBarChart,Heart,Home,Layers,MessageSquare,Settings,ShieldCheck,ShoppingBag,Store,Tags,Users,Wallet,type LucideIcon } from "lucide-react";
 export type WorkspaceRole = "buyer" | "seller" | "admin";
 export interface WorkspaceLink { label: string; to: string; Icon: LucideIcon; group: string; }
 export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
@@ -16,6 +16,7 @@ export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
     { label: "My services", to: "/dashboard/seller/services", Icon: Briefcase, group: "Your business" },
     { label: "Messages", to: "/dashboard/seller/inbox", Icon: MessageSquare, group: "Your business" },
     { label: "Analytics", to: "/dashboard/seller/analytics", Icon: BarChart3, group: "Your business" },
+    { label: "Identity verification", to: "/dashboard/seller/verification", Icon: ShieldCheck, group: "Account" },
     { label: "Earnings", to: "/dashboard/seller/earnings", Icon: Wallet, group: "Account" },
     { label: "Settings", to: "/dashboard/seller/settings", Icon: Settings, group: "Account" },
   ],
@@ -24,6 +25,7 @@ export const WORKSPACE_NAV: Record<WorkspaceRole, WorkspaceLink[]> = {
     { label: "Orders", to: "/admin/orders", Icon: ShoppingBag, group: "Operations" },
     { label: "Payments", to: "/admin/payments", Icon: CreditCard, group: "Operations" },
     { label: "Verifications", to: "/admin/verifications", Icon: ShieldCheck, group: "Operations" },
+    { label: "Support requests", to: "/admin/requests", Icon: MessageSquare, group: "Operations" },
     { label: "Disputes", to: "/admin/disputes", Icon: CircleAlert, group: "Operations" },
     { label: "Users", to: "/admin/users", Icon: Users, group: "Marketplace" },
     { label: "Sellers", to: "/admin/sellers", Icon: Store, group: "Marketplace" },

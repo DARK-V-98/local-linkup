@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import type { AuthUser } from "@/lib/auth";
+import { ReactNode } from "react";
+import { Navigate,useLocation } from "react-router-dom";
 
 type Role = AuthUser["role"];
 
@@ -31,7 +31,7 @@ export default function ProtectedRoute({
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading && !user) return <PageLoader />;
+  if (loading) return <PageLoader />;
 
   if (!user) {
     const redirect = encodeURIComponent(location.pathname + location.search);

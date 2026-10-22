@@ -1,3 +1,4 @@
+import { submitRequest } from "@/lib/firestore/workflows";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -6,21 +7,11 @@ export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes("@")) {
-      toast.error("Please enter a valid email address.");
-      return;
-    }
-    try {
-      const existing: string[] = JSON.parse(localStorage.getItem("needly_newsletter") ?? "[]");
-      if (!existing.includes(email.trim())) {
-        existing.push(email.trim());
-        localStorage.setItem("needly_newsletter", JSON.stringify(existing));
-      }
-    } catch { /* ignore */ }
-    setSubscribed(true);
-    toast.success("You're subscribed! Weekly deals & new sellers straight to your inbox.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { toast.error("Enter a valid email address."); return; }
+    try { await submitRequest("newsletter",{email:email.trim()}); setSubscribed(true); toast.success("Your newsletter request is saved."); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Could not subscribe."); }
   };
 
   return (

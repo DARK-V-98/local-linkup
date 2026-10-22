@@ -1,14 +1,15 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDocs,
-  onSnapshot,
-  serverTimestamp,
-  getDoc,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+collection,
+deleteDoc,
+doc,
+getDoc,
+getDocs,
+onSnapshot,
+runTransaction,
+serverTimestamp,
+setDoc,
+} from "firebase/firestore";
 
 /** Subcollection: users/{uid}/saved/{serviceId} */
 const savedCol = (uid: string) => collection(db, "users", uid, "saved");
@@ -54,23 +55,18 @@ export async function toggleFirestoreSaved(
   uid: string,
   serviceId: string
 ): Promise<boolean> {
-  const exists = await isFirestoreSaved(uid, serviceId);
-  if (exists) {
-    await removeSaved(uid, serviceId);
-    return false;
-  } else {
-    await addSaved(uid, serviceId);
-    return true;
-  }
+  const target=doc(savedCol(uid),serviceId);
+  return runTransaction(db,async tx=>{const snap=await tx.get(target);if(snap.exists()){tx.delete(target);return false;}tx.set(target,{serviceId,savedAt:serverTimestamp()});return true;});
 }
 
 // ── Real-time ──────────────────────────────────────────────────────────────────
 
 export function subscribeToSaved(
   uid: string,
-  callback: (ids: string[]) => void
+  callback: (ids: string[]) => void,
+  onError?: (error:unknown)=>void
 ): () => void {
   return onSnapshot(savedCol(uid), (snap) => {
     callback(snap.docs.map((d) => d.id));
-  });
+  },onError);
 }

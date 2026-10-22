@@ -1,21 +1,20 @@
-import { useState, useEffect, useCallback } from "react";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToConversations,
-  subscribeToMessages,
-  sendMessage as fsSendMessage,
-  markMessagesRead,
-  type FSConversation,
-  type FSMessage,
+sendMessage as fsSendMessage,
+markMessagesRead,
+subscribeToConversations,
+subscribeToMessages,
+type FSConversation,
+type FSMessage,
 } from "@/lib/firestore/conversations";
-import { getUser } from "@/lib/auth";
+import { useCallback,useEffect,useState } from "react";
 
 /**
  * Real-time inbox hook.
  * - Provides conversation list (real-time Firestore when configured)
  * - Provides active-conversation messages (real-time subcollection)
- * - Falls back to empty state when Firebase is not configured (SellerInbox
- *   renders its own mock data in that case)
+ * - Requires Firebase for message delivery.
  */
 export function useConversations(perspective?: "buyer" | "seller") {
   const [conversations, setConversations] = useState<FSConversation[]>([]);
@@ -64,7 +63,7 @@ export function useConversations(perspective?: "buyer" | "seller") {
     async (text: string) => {
       if (!activeId || !text.trim() || !user) return;
 
-      if (!isFirebaseConfigured) return; // handled in SellerInbox via mock
+      if (!isFirebaseConfigured) throw new Error("Messaging requires a database connection.");
 
       await fsSendMessage(activeId, {
         senderId: user.id,

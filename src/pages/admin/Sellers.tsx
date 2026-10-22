@@ -1,15 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { getBookings, getMyServices, StoredBooking, StoredService } from "@/lib/store";
-import { formatPrice } from "@/lib/format";
-import { usePageTitle } from "@/lib/usePageTitle";
-import { toast } from "sonner";
+import { useAllUsers } from "@/hooks/useAllUsers";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { subscribeToAllBookings } from "@/lib/firestore/bookings";
-import { subscribeToAllServices, type FirestoreService } from "@/lib/firestore/services";
-import { useAllUsers } from "@/hooks/useAllUsers";
-import { setUserStatus, setUserVerified } from "@/lib/firestore/users";
 import { tsToIso } from "@/lib/firestore/normalize";
+import { subscribeToAllServices,type FirestoreService } from "@/lib/firestore/services";
+import { setUserStatus } from "@/lib/firestore/users";
+import { reviewVerification } from "@/lib/firestore/workflows";
+import { formatPrice } from "@/lib/format";
+import { type StoredBooking,type StoredService } from "@/lib/store";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useEffect,useMemo,useState } from "react";
+import { toast } from "sonner";
 
 const adminSidebarItems = [
   { label: "Overview", to: "/admin", icon: "fa-chart-pie" },
@@ -57,11 +58,6 @@ export default function AdminSellers() {
   const [selectedSeller, setSelectedSeller] = useState<SellerProfile | null>(null);
   const [districtFilter, setDistrictFilter] = useState("All");
 
-  useEffect(() => {
-    if (isFirebaseConfigured) return;
-    setBookings(getBookings());
-    setServices(getMyServices());
-  }, []);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -89,7 +85,7 @@ export default function AdminSellers() {
     return users
       .filter((u) => u.role === "seller")
       .map((u) => {
-        const theirs = completed.filter((b) => (b as { sellerId?: string }).sellerId === u.id || b.vendorName === u.name);
+        const theirs = completed.filter((b) => (b as { sellerId?: string }).sellerId === u.id);
         const listings = allServices.filter((sv) => sv.sellerId === u.id);
         const rated = listings.filter((sv) => (sv.rating ?? 0) > 0);
         return {
@@ -124,8 +120,8 @@ export default function AdminSellers() {
     return true;
   }), [enrichedSellers, statusFilter, districtFilter, search]);
 
-  const toggleStatus = async (name: string) => {
-    const seller = enrichedSellers.find((s) => s.name === name);
+  const toggleStatus = async (id: string) => {
+    const seller = enrichedSellers.find((s) => s.id === id);
     if (!seller?.id) return;
     const next = seller.status === "active" ? "suspended" : "active";
     try {
@@ -136,12 +132,12 @@ export default function AdminSellers() {
     }
   };
 
-  const verify = async (name: string) => {
-    const seller = enrichedSellers.find((s) => s.name === name);
+  const verify = async (id: string) => {
+    const seller = enrichedSellers.find((s) => s.id === id);
     if (!seller?.id) return;
     try {
-      await setUserVerified(seller.id, true);
-      toast.success(`${name} verified successfully.`);
+      await reviewVerification(seller.id, "approved", "Reviewed from seller management");
+      toast.success(`${seller.name} verified successfully.`);
     } catch {
       toast.error("Could not verify this seller.");
     }
@@ -251,12 +247,12 @@ export default function AdminSellers() {
                 <i className="fas fa-eye" /> Details
               </button>
               {!s.verified && (
-                <button onClick={() => verify(s.name)}
+                <button onClick={() => verify(s.id)}
                   className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold hover:bg-emerald-100 transition">
                   <i className="fas fa-shield-halved" /> Verify
                 </button>
               )}
-              <button onClick={() => toggleStatus(s.name)}
+              <button onClick={() => toggleStatus(s.id)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition ${s.status === "active" ? "bg-red-50 text-red-500 border border-red-200 hover:bg-red-100" : "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100"}`}>
                 <i className={`fas ${s.status === "active" ? "fa-ban" : "fa-circle-check"}`} />
                 {s.status === "active" ? "Suspend" : "Activate"}
@@ -324,12 +320,12 @@ export default function AdminSellers() {
 
             <div className="flex gap-3 mt-6">
               {!selectedSeller.verified && (
-                <button onClick={() => { verify(selectedSeller.name); setSelectedSeller(null); }}
+                <button onClick={() => { verify(selectedSeller.id); setSelectedSeller(null); }}
                   className="flex-1 bg-emerald-500 text-white py-3 rounded-2xl font-bold text-sm hover:bg-emerald-600 transition">
                   <i className="fas fa-shield-halved mr-2" /> Verify Seller
                 </button>
               )}
-              <button onClick={() => { toggleStatus(selectedSeller.name); setSelectedSeller(null); }}
+              <button onClick={() => { toggleStatus(selectedSeller.id); setSelectedSeller(null); }}
                 className={`flex-1 py-3 rounded-2xl font-bold text-sm transition ${selectedSeller.status === "active" ? "bg-red-500 text-white hover:bg-red-600" : "bg-emerald-500 text-white hover:bg-emerald-600"}`}>
                 {selectedSeller.status === "active" ? "Suspend Seller" : "Activate Seller"}
               </button>

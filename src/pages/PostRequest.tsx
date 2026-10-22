@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
 import WhatsAppButton from "@/components/WhatsAppButton";
-import { toast } from "sonner";
 import { SL_DISTRICTS } from "@/data/catalog";
 import { useCategories } from "@/hooks/useCategories";
 import { useJobRequests } from "@/hooks/useJobRequests";
-import { addJobRequest } from "@/lib/firestore/jobRequests";
-import { isFirebaseConfigured } from "@/lib/firebase";
 import { getUser } from "@/lib/auth";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { addJobRequest,sendJobQuote,subscribeJobQuotes } from "@/lib/firestore/jobRequests";
 import { timeAgo } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useEffect,useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 
 const URGENCY_LABELS = { flexible: "Flexible", this_week: "This Week", urgent: "Urgent" };
@@ -24,6 +24,13 @@ const URGENCY_STYLE = {
 export default function PostRequest() {
   usePageTitle("Post a Job — Get Quotes from Local Pros");
   const { categories } = useCategories();
+  const user=getUser();
+  const [quoteTarget,setQuoteTarget]=useState<string|null>(null);
+  const [quoteText,setQuoteText]=useState("");
+  const [quoteBusy,setQuoteBusy]=useState(false);
+  const [viewQuotes,setViewQuotes]=useState<string|null>(null);
+  const [quotes,setQuotes]=useState<{id:string;sellerName:string;message:string}[]>([]);
+  useEffect(()=>{setQuotes([]);if(!viewQuotes)return;return subscribeJobQuotes(viewQuotes,setQuotes,()=>toast.error("Could not load quotes."));},[viewQuotes]);
   const [view, setView] = useState<"browse" | "post">("browse");
   const { requests: posts, loading: postsLoading } = useJobRequests();
   const [filterCat, setFilterCat] = useState("all");
@@ -60,8 +67,9 @@ export default function PostRequest() {
       return;
     }
 
-    setSubmitting(true);
     const user = getUser();
+    if (!user) { toast.error("Please sign in to post a job."); return; }
+    setSubmitting(true);
     const budget = form.budgetMax
       ? `Rs. ${Number(form.budget || 0).toLocaleString()} – ${Number(form.budgetMax).toLocaleString()}`
       : form.budget
@@ -93,6 +101,9 @@ export default function PostRequest() {
   return (
     <AppShell fullBleed>
       <div className="pb-10">
+        {quoteTarget&&<form className="container mx-auto my-4 bg-white border rounded-2xl p-5 space-y-3" onSubmit={async e=>{e.preventDefault();if(!user)return;setQuoteBusy(true);try{await sendJobQuote(quoteTarget,user.id,user.name,quoteText);toast.success("Quote saved for the buyer to review.");setQuoteTarget(null);setQuoteText("");}catch(error){toast.error(error instanceof Error?error.message:"Could not submit quote.");}finally{setQuoteBusy(false);}}}><h2 className="font-black">Send your quote</h2><textarea required maxLength={2000} value={quoteText} onChange={e=>setQuoteText(e.target.value)} aria-label="Quote details" placeholder="Describe your offer, price and availability" className="w-full border rounded-xl p-3"/><button disabled={quoteBusy} className="rounded-xl bg-primary text-primary-foreground px-4 py-3 font-bold">Send quote</button><button type="button" onClick={()=>setQuoteTarget(null)} className="ml-4">Cancel</button></form>}
+        {viewQuotes&&<section className="container mx-auto my-4 border rounded-2xl p-5 space-y-3"><h2 className="font-black">Seller quotes</h2>{!quotes.length&&<p>No quotes yet.</p>}{quotes.map(quote=><article key={quote.id} className="border rounded-xl p-4"><h3 className="font-bold">{quote.sellerName}</h3><p className="whitespace-pre-wrap">{quote.message}</p><Link className="text-primary font-bold" to={`/browse?q=${encodeURIComponent(quote.sellerName)}`}>View seller services</Link></article>)}<button onClick={()=>setViewQuotes(null)}>Close quotes</button></section>}
+
 
         {/* Hero */}
         <section className="bg-gradient-to-b from-background to-slate-50 border-b border-border py-14">
@@ -223,10 +234,10 @@ export default function PostRequest() {
                       <span className="text-[10px] text-muted-foreground">· {timeAgo(post.postedAt)}</span>
                     </div>
                     <button
-                      onClick={() => toast.success("Quote sent! The buyer will be notified.")}
+                      onClick={() => {if(!user){toast.error("Sign in to quote or view responses.");return;}if(post.authorId===user.id){setViewQuotes(post.id);return;}if(user.role!=="seller"){toast.error("Seller accounts can submit quotes.");return;}setQuoteTarget(post.id);}}
                       className="text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary hover:text-primary-foreground transition"
                     >
-                      <i className="fas fa-paper-plane mr-1" /> Quote
+                      <i className="fas fa-paper-plane mr-1" /> {post.authorId===user?.id?"View quotes":"Quote"}
                     </button>
                   </div>
                 </div>

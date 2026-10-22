@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function active() { return request.auth != null && request.auth.token.get('suspended', false) == false; }
+    match /avatars/{uid} {
+      allow read: if true;
+      allow write: if active() && request.auth.uid == uid && request.resource.size <= 2 * 1024 * 1024 && request.resource.contentType in ['image/jpeg','image/png'];
+    }
+    match /verifications/{uid}/{file} {
+      allow read: if active() && request.auth.uid == uid;
+      allow create: if active() && request.auth.uid == uid && request.resource.size <= 5 * 1024 * 1024 && request.resource.contentType in ['image/jpeg','image/png','application/pdf'];
+      allow update, delete: if false;
+    }
+  }
+}

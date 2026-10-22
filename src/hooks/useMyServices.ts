@@ -1,26 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
+import { tsToIso } from "@/lib/firestore/normalize";
 import {
-  subscribeToMyServices,
-  addFirestoreService,
-  updateFirestoreService,
-  deleteFirestoreService,
-  type FirestoreService,
+addFirestoreService,
+deleteFirestoreService,
+subscribeToMyServices,
+updateFirestoreService,
+type FirestoreService,
 } from "@/lib/firestore/services";
 import {
-  getMyServices,
-  addService,
-  updateService,
-  deleteService,
-  type StoredService,
+type StoredService,
 } from "@/lib/store";
-import { getUser } from "@/lib/auth";
-import { tsToIso } from "@/lib/firestore/normalize";
+import { useCallback,useEffect,useState } from "react";
 
 /**
  * Real-time hook for a seller's own services.
  * - Firestore when Firebase configured (real-time across devices)
- * - localStorage fallback otherwise
+ * - Database failures are surfaced without creating browser-only records.
  */
 export function useMyServices() {
   const [services, setServices] = useState<StoredService[]>([]);
@@ -35,11 +31,7 @@ export function useMyServices() {
       return;
     }
 
-    if (!isFirebaseConfigured) {
-      setServices(getMyServices());
-      setLoading(false);
-      return;
-    }
+    if (!isFirebaseConfigured) { setServices([]); setLoading(false); return; }
 
     const timer = window.setTimeout(() => { setError("Your services are taking longer than expected. Check your connection."); setLoading(false); }, 8000);
     const unsub = subscribeToMyServices(user.id, (data) => {
@@ -59,14 +51,12 @@ export function useMyServices() {
           sellerId: user.id,
           sellerName: user.name,
           sellerPhone: user.phone,
-          sellerVerified: user.verified,
+          sellerVerified: false, reviewCount:0,
           sellerBio: user.bio,
         } as Omit<FirestoreService, "id" | "createdAt" | "updatedAt">);
         return id;
       } else {
-        addService(service);
-        setServices(getMyServices());
-        return service.id;
+        throw new Error("Database is unavailable.");
       }
     },
     [user?.id]
@@ -77,8 +67,7 @@ export function useMyServices() {
       if (isFirebaseConfigured) {
         await updateFirestoreService(id, updates);
       } else {
-        updateService(id, updates);
-        setServices(getMyServices());
+        throw new Error("Database is unavailable.");
       }
     },
     []
@@ -88,8 +77,7 @@ export function useMyServices() {
     if (isFirebaseConfigured) {
       await deleteFirestoreService(id);
     } else {
-      deleteService(id);
-      setServices(getMyServices());
+      throw new Error("Database is unavailable.");
     }
   }, []);
 

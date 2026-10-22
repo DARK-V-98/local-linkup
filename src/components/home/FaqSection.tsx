@@ -1,3 +1,4 @@
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -9,7 +10,7 @@ const FAQS = [
   },
   {
     q: "What happens if a seller doesn't show up?",
-    a: "Your payment is protected by the Needlyy Guarantee. If a seller no-shows or doesn't complete the job, you're eligible for a full refund. You can also raise a dispute through your buyer dashboard and our team will resolve it within 24 hours.",
+    a: "Open your booking and raise a dispute if there is a problem. Support reviews the booking and payment records. Refunds require review and are not automatically issued by the browser.",
     icon: "fa-money-bill-wave",
   },
   {
@@ -34,7 +35,7 @@ const FAQS = [
   },
   {
     q: "How do I become a seller?",
-    a: "Click 'Join Needlyy' and select 'Become a Seller'. You'll complete a 3-step registration with your details, service category, and ID verification. Our admin team reviews applications within 24 hours. Once approved, you can post services and start earning.",
+    a: "Click 'Join Needlyy' and select 'Become a Seller'. You'll complete a 3-step registration with your details, service category, and ID verification. Our admin team reviews the private documents you submit. Once approved, you can post services and start earning.",
     icon: "fa-briefcase",
   },
   {
@@ -45,6 +46,7 @@ const FAQS = [
 ];
 
 export default function FaqSection() {
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
   const [open, setOpen] = useState<number | null>(0);
 
   const toggle = (i: number) => setOpen((prev) => (prev === i ? null : i));
@@ -95,7 +97,7 @@ export default function FaqSection() {
           <p className="text-sm text-muted-foreground mb-5">Our support team replies within 2 hours on WhatsApp.</p>
           <div className="flex flex-wrap justify-center gap-3">
             <a
-              href="https://wa.me/94771234567?text=Hi%20Needly%20Support!%20I%20have%20a%20question."
+              href={supportHref}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-[#25D366] text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-[#20ba5a] transition"
             >

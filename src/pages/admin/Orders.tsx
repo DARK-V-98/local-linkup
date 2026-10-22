@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from "react";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { updateBookingStatus, StoredBooking } from "@/lib/store";
 import { useAllBookings } from "@/hooks/useAllBookings";
+import { csvCell } from "@/lib/dashboard";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { updateFirestoreBookingStatus } from "@/lib/firestore/bookings";
 import { formatPrice } from "@/lib/format";
+import { type StoredBooking } from "@/lib/store";
 import { usePageTitle } from "@/lib/usePageTitle";
+import { useMemo,useState } from "react";
 import { toast } from "sonner";
 
 const adminSidebarItems = [
@@ -34,10 +35,10 @@ const STATUS_PILL: Record<string, string> = {
 function exportCSV(orders: StoredBooking[]) {
   const header = ["ID", "Service", "Category", "Customer", "Vendor", "Date", "Price", "District", "Status", "Created"];
   const rows = orders.map((o) => [
-    o.id, `"${o.serviceTitle}"`, o.category, o.customerName, o.vendorName,
+    o.id, o.serviceTitle, o.category, o.customerName, o.vendorName,
     o.date, o.price, o.district, o.status, o.createdAt.split("T")[0],
   ]);
-  const csv = [header, ...rows].map((r) => r.join(",")).join("\n");
+  const csv = [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -87,7 +88,7 @@ export default function AdminOrders() {
         // The snapshot listener refreshes the row once the write lands.
         await updateFirestoreBookingStatus(id, status);
       } else {
-        updateBookingStatus(id, status);
+        throw new Error("Database is unavailable.");
       }
       toast.success("Status updated.");
     } catch {

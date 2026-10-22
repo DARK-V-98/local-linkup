@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import { subscribeToServices, type FirestoreService } from "@/lib/firestore/services";
-import { getMyServices } from "@/lib/store";
-import { tsToIso } from "@/lib/firestore/normalize";
 import type { ServiceListing } from "@/data/catalog";
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { tsToIso } from "@/lib/firestore/normalize";
+import { subscribeToServices,type FirestoreService } from "@/lib/firestore/services";
+import { useEffect,useState } from "react";
 
 /**
  * Public service catalog — every active listing sellers have published.
@@ -20,33 +19,7 @@ export function useServices(pageSize = 200) {
   const useFirestore = isFirebaseConfigured;
 
   useEffect(() => {
-    if (!useFirestore) {
-      setServices(
-        getMyServices()
-          .filter((s) => s.status === "active")
-          .map((s) => ({
-            id: s.id,
-            title: s.title,
-            category: s.category,
-            categoryIcon: stripPrefix(s.categoryIcon),
-            seller: "You",
-            sellerInitial: "Y",
-            location: s.district,
-            district: s.district,
-            price: s.price,
-            rating: s.rating ?? 0,
-            reviews: 0,
-            type: s.type,
-            postedAt: new Date(s.createdAt),
-            description: s.description,
-            tags: s.tags,
-            priceUnit: s.priceUnit,
-            imageUrl: s.imageUrl,
-          }))
-      );
-      setLoading(false);
-      return;
-    }
+    if (!isFirebaseConfigured) { setServices([]); setLoading(false); return; }
 
     let settled = false;
     // Connection-level failures (missing database, offline) never reach the

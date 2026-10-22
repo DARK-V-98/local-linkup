@@ -1,18 +1,18 @@
-import {
-  collection,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  orderBy,
-  serverTimestamp,
-  onSnapshot,
-  writeBatch,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import type { AdminCategory } from "@/lib/adminCategories";
+import { db } from "@/lib/firebase";
+import {
+collection,
+deleteDoc,
+doc,
+getDocs,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+setDoc,
+updateDoc,
+writeBatch,
+} from "firebase/firestore";
 
 export const CATEGORIES_COL = "categories";
 
@@ -27,7 +27,7 @@ export interface FirestoreCategory extends Omit<AdminCategory, "createdAt"> {
 export async function fetchCategories(): Promise<FirestoreCategory[]> {
   const q = query(collection(db, CATEGORIES_COL), orderBy("order", "asc"));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreCategory));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreCategory));
 }
 
 export function subscribeToCategories(
@@ -37,7 +37,7 @@ export function subscribeToCategories(
   const q = query(collection(db, CATEGORIES_COL), orderBy("order", "asc"));
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreCategory))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreCategory))),
     (err) => onError?.(err)
   );
 }

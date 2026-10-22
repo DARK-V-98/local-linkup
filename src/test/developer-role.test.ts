@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
 import {
-  DEVELOPER_EMAIL,
-  resolveRole,
-  hasAdminAccess,
-  isDeveloper,
-  type AuthUser,
+DEVELOPER_EMAIL,
+hasAdminAccess,
+isDeveloper,
+resolveRole,
+type AuthUser,
 } from "@/lib/auth";
+import { describe,expect,it } from "vitest";
 
 const user = (over: Partial<AuthUser>): AuthUser => ({
   id: "U1",
@@ -20,14 +20,15 @@ const user = (over: Partial<AuthUser>): AuthUser => ({
 });
 
 describe("developer role", () => {
+  it("does not grant owner privileges without verified email ownership",()=>{expect(resolveRole(DEVELOPER_EMAIL,"buyer",false)).toBe("buyer");expect(resolveRole("attacker@example.com","developer",true)).toBe("buyer");});
   it("promotes the owner email to developer, whatever role it registered with", () => {
-    expect(resolveRole(DEVELOPER_EMAIL, "buyer")).toBe("developer");
-    expect(resolveRole(DEVELOPER_EMAIL, "seller")).toBe("developer");
-    expect(resolveRole(DEVELOPER_EMAIL, "admin")).toBe("developer");
+    expect(resolveRole(DEVELOPER_EMAIL, "buyer", true)).toBe("developer");
+    expect(resolveRole(DEVELOPER_EMAIL, "seller", true)).toBe("developer");
+    expect(resolveRole(DEVELOPER_EMAIL, "admin", true)).toBe("developer");
   });
 
   it("ignores casing and surrounding whitespace on the owner email", () => {
-    expect(resolveRole("  TikFese@Gmail.com  ", "buyer")).toBe("developer");
+    expect(resolveRole("  TikFese@Gmail.com  ", "buyer", true)).toBe("developer");
   });
 
   it("leaves every other account's role untouched", () => {

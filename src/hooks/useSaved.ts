@@ -1,15 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { getUser } from "@/lib/auth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToSaved,
-  toggleFirestoreSaved,
-  getSavedIds,
+subscribeToSaved,
+toggleFirestoreSaved
 } from "@/lib/firestore/saved";
 import {
-  getSaved,
-  toggleSaved as toggleLocalSaved,
+getSaved,
+toggleSaved as toggleLocalSaved,
 } from "@/lib/saved";
-import { getUser } from "@/lib/auth";
+import { useCallback,useEffect,useState } from "react";
 
 /**
  * Saved-services hook with real-time sync.
@@ -31,15 +30,8 @@ export function useSaved() {
       return;
     }
 
-    // Load initial state then subscribe to real-time updates
-    getSavedIds(user.id).then((ids) => {
-      setSavedIds(new Set(ids));
-      setReady(true);
-    });
-
-    const unsub = subscribeToSaved(user.id, (ids) => {
-      setSavedIds(new Set(ids));
-    });
+    setSavedIds(new Set());setReady(false);
+    const unsub=subscribeToSaved(user.id,ids=>{setSavedIds(new Set(ids));setReady(true);},()=>setReady(true));
     return unsub;
   }, [user?.id]);
 

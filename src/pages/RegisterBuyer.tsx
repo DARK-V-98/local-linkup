@@ -1,7 +1,7 @@
-import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "@/components/auth/AuthShell";
-import { signUpBuyer, signInWithGoogle } from "@/lib/auth";
+import { signInWithGoogle,signUpBuyer } from "@/lib/auth";
+import { FormEvent,useState } from "react";
+import { Link,useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 export default function RegisterBuyer() {
@@ -22,8 +22,8 @@ export default function RegisterBuyer() {
       toast.error("Please fill in all fields.");
       return;
     }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
       return;
     }
 
@@ -31,13 +31,13 @@ export default function RegisterBuyer() {
     try {
       const user = await signUpBuyer({ name, email, phone, password, district: city });
       toast.success(`Welcome to Needlyy, ${user.name.split(" ")[0]}! 🎉`);
-      navigate("/dashboard/buyer");
+      navigate(user.role === "seller" ? "/dashboard/seller" : ["admin","developer"].includes(user.role) ? "/admin" : "/dashboard/buyer");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed.";
       if (msg.includes("email-already-in-use")) {
         toast.error("This email is already registered. Try signing in.");
       } else if (msg.includes("weak-password")) {
-        toast.error("Password is too weak. Use at least 6 characters.");
+        toast.error("Password is too weak. Use at least 8 characters.");
       } else {
         toast.error(msg);
       }
@@ -51,7 +51,7 @@ export default function RegisterBuyer() {
     try {
       const user = await signInWithGoogle();
       toast.success(`Welcome, ${user.name.split(" ")[0]}! 🎉`);
-      navigate("/dashboard/buyer");
+      navigate(user.role === "seller" ? "/dashboard/seller" : ["admin","developer"].includes(user.role) ? "/admin" : "/dashboard/buyer");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Google sign-in failed.";
       if (!msg.includes("popup-closed")) {

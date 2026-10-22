@@ -1,10 +1,11 @@
-# Homepage images
+# Brand imagery
 
-| File name                 | Where it appears                                                        |
-| ------------------------- | ----------------------------------------------------------------------- |
-| `hero-professionals.png`  | Background artwork of the dark hero panel on the homepage (right side)  |
-| `join-seller.png`         | The full "Join as a Seller" card in the homepage right sidebar          |
+| Asset | Usage |
+| --- | --- |
+| `hero-local-desktop.png` | Desktop homepage hero; landscape composition. |
+| `hero-local-mobile.png` | Mobile homepage hero below 640px; dedicated portrait composition. |
+| `service-toolkit-transparent.png` | Transparent toolkit illustration for the seller invitation and empty service state. |
 
-To swap either image, replace the file keeping the same name — no code change
-needed. If a file is missing, the page falls back gracefully (hero shows the
-plain dark panel; the seller card renders an HTML version).
+These images were generated for Needlyy. People shown are illustrative brand characters, not registered providers or testimonials. The hero is labelled accordingly. The toolkit has a real alpha channel and can sit on light or navy surfaces.
+
+`hero-professionals.png` and `join-seller.png` are retained legacy artwork. The current homepage does not depend on them.

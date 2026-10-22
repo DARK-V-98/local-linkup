@@ -1,7 +1,9 @@
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
 export default function WhatsAppButton() {
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
   return (
     <a
-      href="https://wa.me/94771234567?text=Hi%20Needly!%20I%20need%20help%20finding%20a%20service."
+      href={supportHref}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with Needly on WhatsApp"

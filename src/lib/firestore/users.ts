@@ -1,15 +1,15 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  onSnapshot,
-  runTransaction,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import type { AuthUser } from "@/lib/auth";
+import { db } from "@/lib/firebase";
+import {
+collection,
+doc,
+getDoc,
+onSnapshot,
+runTransaction,
+serverTimestamp,
+setDoc,
+updateDoc,
+} from "firebase/firestore";
 
 export const USERS_COL = "users";
 
@@ -37,7 +37,7 @@ export interface UserProfile extends AuthUser {
 export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, USERS_COL, uid));
   if (!snap.exists()) return null;
-  return { id: uid, ...snap.data() } as UserProfile;
+  return { ...snap.data(), id: uid } as UserProfile;
 }
 
 /**
@@ -70,7 +70,7 @@ export async function ensureUserProfile(
 
     if (snap.exists()) {
       return {
-        profile: { id: uid, ...snap.data() } as UserProfile,
+        profile: { ...snap.data(), id: uid } as UserProfile,
         created: false,
       };
     }
@@ -132,7 +132,7 @@ export function subscribeToUsers(
 ): () => void {
   return onSnapshot(
     collection(db, USERS_COL),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as UserProfile))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as UserProfile))),
     (err) => onError?.(err)
   );
 }

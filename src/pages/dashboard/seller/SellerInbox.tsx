@@ -1,20 +1,20 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { ArrowLeft, Send, Search, LoaderCircle } from "lucide-react";
-import { toast } from "sonner";
-import { Link } from "react-router-dom";
 import DashboardShell from "@/components/dashboard/DashboardShell";
-import { usePageTitle } from "@/lib/usePageTitle";
 import { getUser } from "@/lib/auth";
-import { timeAgo } from "@/lib/format";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
-  subscribeToConversations,
-  subscribeToMessages,
-  sendMessage as fsSendMessage,
-  markMessagesRead,
-  type FSConversation,
-  type FSMessage,
+sendMessage as fsSendMessage,
+markMessagesRead,
+subscribeToConversations,
+subscribeToMessages,
+type FSConversation,
+type FSMessage,
 } from "@/lib/firestore/conversations";
+import { timeAgo } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { ArrowLeft,LoaderCircle,Search,Send } from "lucide-react";
+import { useCallback,useEffect,useRef,useState } from "react";
+import { Link,useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const sellerSidebarItems = [
   { label: "Overview", to: "/dashboard/seller", icon: "fa-chart-line" },
@@ -46,7 +46,7 @@ interface UIConversation {
   online: boolean;
 }
 
-// ── Mock data fallback (used when Firebase not configured) ─────────────────────
+
 
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -78,6 +78,7 @@ function fsMsgToUI(m: FSMessage, userId: string): UIMessage {
 
 export default function SellerInbox({ perspective = "seller" }: { perspective?: "buyer" | "seller" }) {
   usePageTitle("Inbox");
+  const [params]=useSearchParams();
   const user = getUser();
   const usingFirebase = isFirebaseConfigured && Boolean(user);
 
@@ -88,9 +89,7 @@ export default function SellerInbox({ perspective = "seller" }: { perspective?: 
   const [loadingConvos, setLoadingConvos] = useState(usingFirebase);
 
   // ── Active conversation + messages ───────────────────────────────────────────
-  const [activeId, setActiveId] = useState<string | null>(
-    null
-  );
+  const [activeId, setActiveId] = useState<string | null>(params.get("conversation"));
   const [messages, setMessages] = useState<UIMessage[]>(
     []
   );
@@ -107,7 +106,7 @@ export default function SellerInbox({ perspective = "seller" }: { perspective?: 
     const unsub = subscribeToConversations(user.id, (fsConvos) => {
       setConversations(fsConvos.map((c) => fsToUI(c, perspective)));
       setLoadingConvos(false);
-    });
+    },()=>{setLoadingConvos(false);toast.error("Could not load conversations.");});
     return unsub;
   }, [usingFirebase, user?.id, perspective]);
 
@@ -118,7 +117,8 @@ export default function SellerInbox({ perspective = "seller" }: { perspective?: 
     const unsub = subscribeToMessages(activeId, (fsMsgs) => {
       setMessages(fsMsgs.map((m) => fsMsgToUI(m, user!.id)));
       setLoadingMsgs(false);
-    });
+      void markMessagesRead(activeId,perspective).catch(()=>{});
+    },()=>{setLoadingMsgs(false);toast.error("Could not load messages.");});
     return unsub;
   }, [usingFirebase, activeId]);
 
@@ -137,16 +137,6 @@ export default function SellerInbox({ perspective = "seller" }: { perspective?: 
         await markMessagesRead(id, perspective);
         setConversations((prev) =>
           prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c))
-        );
-      } else {
-        // Mock mode
-        setMessages([]);
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === id
-              ? { ...c, unread: 0 }
-              : c
-          )
         );
       }
     },
@@ -171,24 +161,7 @@ export default function SellerInbox({ perspective = "seller" }: { perspective?: 
           text,
           read: false,
         });
-      } else {
-        // Mock mode — append locally
-        const newMsg: UIMessage = {
-          id: `m${Date.now()}`,
-          from: "me",
-          text,
-          sentAt: new Date(),
-          read: true,
-        };
-        setMessages((prev) => [...prev, newMsg]);
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === activeId
-              ? { ...c, lastMessage: text, lastAt: new Date() }
-              : c
-          )
-        );
-      }
+      } else { throw new Error("Messaging requires a database connection."); }
       } catch {
         setDraft(text);
         toast.error("Message could not be sent. Your draft is saved — please try again.");

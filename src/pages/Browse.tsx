@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { usePageTitle } from "@/lib/usePageTitle";
 import AppShell from "@/components/layout/AppShell";
+import ServiceImage from "@/components/ServiceImage";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { SL_DISTRICTS } from "@/data/catalog";
-import { formatPrice, timeAgo } from "@/lib/format";
-import { getSaved, toggleSaved } from "@/lib/saved";
 import { useCategories } from "@/hooks/useCategories";
+import { usePlatformSettings } from "@/hooks/usePlatformSettings";
+import { useSaved } from "@/hooks/useSaved";
 import { useServices } from "@/hooks/useServices";
-import ServiceImage from "@/components/ServiceImage";
+import { formatPrice } from "@/lib/format";
+import { usePageTitle } from "@/lib/usePageTitle";
+import { useEffect,useState } from "react";
+import { Link,useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 9;
 const SERVICE_TYPES = ["All Types", "Fixed Price", "Hourly Service", "Booking Service", "Local Service", "Online Service"];
@@ -21,6 +23,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function Browse() {
+  const {supportHref,supportPhone,supportEmail}=usePlatformSettings();
   usePageTitle("Browse Services", "Search and filter verified local professionals across Sri Lanka. Find the right service for you.");
   const [searchParams] = useSearchParams();
   const { categories } = useCategories({ withCounts: true });
@@ -34,13 +37,12 @@ export default function Browse() {
   const [sortBy, setSortBy] = useState("relevant");
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
-  const [savedSet, setSavedSet] = useState<Set<string>>(() => new Set(getSaved()));
+  const {savedIds:savedSet,toggle}=useSaved();
 
   const handleSave = (serviceId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleSaved(serviceId);
-    setSavedSet(new Set(getSaved()));
+    void toggle(serviceId).catch(()=>toast.error("Could not save the service."));
   };
 
   useEffect(() => {
@@ -233,7 +235,7 @@ export default function Browse() {
               <div className="relative">
                 <i className="fas fa-rocket text-primary text-3xl mb-4" />
                 <h4 className="font-bold text-base leading-tight">Ready to sell?</h4>
-                <p className="text-xs text-slate-400 mt-2">Join thousands of pros and start earning today.</p>
+                <p className="text-xs text-slate-400 mt-2">Share your skills and connect with local clients.</p>
                 <Link to="/role-selection?mode=register" className="mt-5 block text-center w-full bg-gradient-brand text-primary-foreground py-3 rounded-xl font-bold text-xs">
                   Become a Seller
                 </Link>
@@ -242,7 +244,7 @@ export default function Browse() {
 
             {/* WhatsApp help */}
             <a
-              href="https://wa.me/94771234567?text=Hi%20Needly!%20I%20need%20help%20finding%20a%20service."
+              href={supportHref}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 p-4 bg-[#25D366]/10 border border-[#25D366]/30 rounded-2xl hover:bg-[#25D366]/20 transition"

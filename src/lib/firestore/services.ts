@@ -1,22 +1,22 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  onSnapshot,
-  increment,
-  type QueryConstraint,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { StoredService } from "@/lib/store";
+import {
+addDoc,
+collection,
+deleteDoc,
+doc,
+getDoc,
+getDocs,
+increment,
+limit,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+updateDoc,
+where,
+type QueryConstraint,
+} from "firebase/firestore";
 
 export const SERVICES_COL = "services";
 
@@ -72,17 +72,13 @@ export async function fetchServices(filters: ServiceFilters = {}): Promise<Fires
 
   const q = query(collection(db, SERVICES_COL), ...constraints);
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService));
 }
 
 export async function fetchServiceById(id: string): Promise<FirestoreService | null> {
-  try {
-    const snap = await getDoc(doc(db, SERVICES_COL, id));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() } as FirestoreService;
-  } catch {
-    return null;
-  }
+  const snap = await getDoc(doc(db, SERVICES_COL, id));
+  if (!snap.exists()) return null;
+  return { ...snap.data(), id: snap.id } as FirestoreService;
 }
 
 export async function fetchMyServices(sellerId: string): Promise<FirestoreService[]> {
@@ -92,7 +88,7 @@ export async function fetchMyServices(sellerId: string): Promise<FirestoreServic
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService));
 }
 
 /**
@@ -118,7 +114,7 @@ export async function fetchTopServices(n = 8): Promise<FirestoreService[]> {
     limit(n)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService));
+  return snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService));
 }
 
 // ── Writes ─────────────────────────────────────────────────────────────────────
@@ -127,7 +123,7 @@ export async function addFirestoreService(
   service: Omit<FirestoreService, "id" | "createdAt" | "updatedAt">
 ): Promise<string> {
   const ref = await addDoc(collection(db, SERVICES_COL), {
-    ...service,
+    ...Object.fromEntries(Object.entries(service).filter(([key, value]) => key !== "id" && value !== undefined)),
     views: 0,
     orders: 0,
     rating: 0,
@@ -170,7 +166,7 @@ export function subscribeToMyServices(
     orderBy("createdAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService)));
   }, onError);
 }
 
@@ -192,7 +188,7 @@ export function subscribeToServices(
   const q = query(collection(db, SERVICES_COL), ...constraints);
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService))),
     // Without a handler Firestore logs an uncaught error and the caller is
     // left waiting forever — surface it so the UI can stop loading.
     (err) => onError?.(err)
@@ -209,7 +205,7 @@ export function subscribeToAllServices(
   const q = query(collection(db, SERVICES_COL), orderBy("createdAt", "desc"));
   return onSnapshot(
     q,
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FirestoreService))),
+    (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FirestoreService))),
     (err) => onError?.(err)
   );
 }

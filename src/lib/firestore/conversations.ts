@@ -1,19 +1,20 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  onSnapshot,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  increment,
-  type Timestamp,
-} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+addDoc,
+collection,
+doc,
+getDoc,
+getDocs,
+increment,
+onSnapshot,
+orderBy,
+query,
+serverTimestamp,
+updateDoc,
+where,
+writeBatch,
+type Timestamp,
+} from "firebase/firestore";
 
 export const CONVERSATIONS_COL = "conversations";
 export const MESSAGES_SUBCOL = "messages";
@@ -91,7 +92,7 @@ export async function findExistingConversation(
   const snap = await getDocs(q);
   if (snap.empty) return null;
   const d = snap.docs[0];
-  return { id: d.id, ...d.data() } as FSConversation;
+  return { ...d.data(), id: d.id } as FSConversation;
 }
 
 export async function markConversationRead(
@@ -128,7 +129,7 @@ export function subscribeToConversations(
     orderBy("lastAt", "desc")
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSConversation)));
+    callback(snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSConversation)));
   }, onError);
 }
 
@@ -138,9 +139,10 @@ export async function sendMessage(
   conversationId: string,
   msg: Omit<FSMessage, "id" | "sentAt" | "conversationId">
 ): Promise<void> {
-  // Add message to subcollection
+  if (!msg.text.trim() || msg.text.length > 4000) throw new Error("Messages must contain 1–4,000 characters.");
+  const batch=writeBatch(db);
   const msgRef = collection(db, CONVERSATIONS_COL, conversationId, MESSAGES_SUBCOL);
-  await addDoc(msgRef, {
+  batch.set(doc(msgRef), {
     ...msg,
     conversationId,
     sentAt: serverTimestamp(),
@@ -149,11 +151,12 @@ export async function sendMessage(
 
   // Update conversation: last message + increment unread for recipient
   const unreadField = msg.from === "seller" ? "unreadBuyer" : "unreadSeller";
-  await updateDoc(doc(db, CONVERSATIONS_COL, conversationId), {
+  batch.update(doc(db, CONVERSATIONS_COL, conversationId), {
     lastMessage: msg.text,
     lastAt: serverTimestamp(),
     [unreadField]: increment(1),
   });
+  await batch.commit();
 }
 
 export async function markMessagesRead(
@@ -168,7 +171,8 @@ export async function markMessagesRead(
 
 export function subscribeToMessages(
   conversationId: string,
-  callback: (messages: FSMessage[]) => void
+  callback: (messages: FSMessage[]) => void,
+  onError?: (error:unknown)=>void
 ): () => void {
   const q = query(
     collection(db, CONVERSATIONS_COL, conversationId, MESSAGES_SUBCOL),
@@ -176,7 +180,7 @@ export function subscribeToMessages(
   );
   return onSnapshot(q, (snap) => {
     callback(
-      snap.docs.map((d) => ({ id: d.id, ...d.data() } as FSMessage))
+      snap.docs.map((d) => ({ ...d.data(), id: d.id } as FSMessage))
     );
-  });
+  },onError);
 }

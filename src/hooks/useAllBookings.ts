@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { subscribeToAllBookings } from "@/lib/firestore/bookings";
-import { getBookings, type StoredBooking } from "@/lib/store";
 import { tsToIso } from "@/lib/firestore/normalize";
+import { type StoredBooking } from "@/lib/store";
+import { useEffect,useState } from "react";
 
 /**
  * Every booking on the platform, for admin reporting screens.
@@ -14,13 +14,7 @@ export function useAllBookings() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      setBookings(getBookings());
-      setLoading(false);
-      const refresh = () => setBookings(getBookings());
-      window.addEventListener("needly-bookings-change", refresh);
-      return () => window.removeEventListener("needly-bookings-change", refresh);
-    }
+    if (!isFirebaseConfigured) { setBookings([]);setLoading(false);setError("Database is unavailable.");return; }
 
     let settled = false;
     const fallbackTimer = window.setTimeout(() => {

@@ -1,21 +1,8 @@
-import { useState, useEffect } from "react";
-import { isFirebaseConfigured } from "@/lib/firebase";
-import { subscribeToFeed, type FSPost } from "@/lib/firestore/feed";
-import { tsToIso } from "@/lib/firestore/normalize";
 import type { FeedPost } from "@/data/feed";
-
-/** Locally composed posts, used when Firebase is unconfigured. */
-function getStoredPosts(): FeedPost[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem("needly_feed_posts") ?? "[]");
-    return raw.map((p: FeedPost & { postedAt: string }) => ({
-      ...p,
-      postedAt: new Date(p.postedAt),
-    }));
-  } catch {
-    return [];
-  }
-}
+import { isFirebaseConfigured } from "@/lib/firebase";
+import { subscribeToFeed,type FSPost } from "@/lib/firestore/feed";
+import { tsToIso } from "@/lib/firestore/normalize";
+import { useEffect,useState } from "react";
 
 /** Live community feed, newest first. */
 export function useFeed() {
@@ -23,15 +10,7 @@ export function useFeed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
-      const refresh = () => {
-        setPosts(getStoredPosts());
-        setLoading(false);
-      };
-      refresh();
-      window.addEventListener("needly-feed-change", refresh);
-      return () => window.removeEventListener("needly-feed-change", refresh);
-    }
+    if (!isFirebaseConfigured) { setPosts([]); setLoading(false); return; }
 
     let settled = false;
     const fallbackTimer = window.setTimeout(() => {
