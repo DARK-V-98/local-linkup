@@ -303,7 +303,7 @@ export default function VendorProfile() {
               <div className="relative">
                 <i className="fas fa-shield-halved text-primary text-2xl mb-3" />
                 <h4 className="font-bold">Needly Protection</h4>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed">Covered up to Rs. 20,000 for all verified bookings.</p>
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">Online payments are held until you confirm the job is done.</p>
                 <Link to={`/service/${vendorServices[0]?.id}`} className="mt-4 block text-center bg-gradient-brand text-primary-foreground py-3 rounded-2xl font-bold text-sm shadow-glow hover:scale-105 transition">
                   Book Now
                 </Link>

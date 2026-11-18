@@ -15,7 +15,7 @@ const FAQS = [
   },
   {
     q: "How do I pay? What methods are accepted?",
-    a: "You can pay by card (Visa/Mastercard), bank transfer, PayHere, Needlyy Wallet, or cash on service delivery. All digital payments are processed securely. We never store your card details — they're handled by PCI-compliant payment processors.",
+    a: "Pay online by Visa, Mastercard or American Express, LankaQR, mobile wallets or internet banking through our secure payment gateway, or in cash on completion where the seller offers it. Online payments are held until you confirm the job is done. We never store your card details — they're handled by PCI DSS-compliant payment processors.",
     icon: "fa-credit-card",
   },
   {
@@ -40,7 +40,7 @@ const FAQS = [
   },
   {
     q: "What commission does Needlyy charge sellers?",
-    a: "Needlyy charges a 10% platform fee on completed orders. This covers payment processing, customer support, the trust infrastructure, and marketing that brings buyers to your listings. There are no monthly fees — you only pay when you earn.",
+    a: "Any platform fee is shown in your seller dashboard before you accept a booking, and fee changes are announced at least 14 days in advance. There are no monthly fees — you only pay when you earn.",
     icon: "fa-percent",
   },
 ];

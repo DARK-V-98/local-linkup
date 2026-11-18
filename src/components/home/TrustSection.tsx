@@ -16,8 +16,8 @@ const trustItems = [
   {
     icon: "fa-shield-halved",
     color: "from-violet-500 to-purple-500",
-    title: "Customer Protection",
-    desc: "All verified bookings are covered by Needly's Customer Protection Program up to Rs. 20,000.",
+    title: "Refund Protection",
+    desc: "If a seller cancels or doesn't show up, you get a full refund. Problems with the work are reviewed through our dispute process.",
   },
   {
     icon: "fa-headset",
@@ -91,12 +91,12 @@ export default function TrustSection() {
             <i className="fas fa-shield-halved text-xl" />
           </span>
           <div className="flex-1">
-            <h4 className="font-black text-base">Needly Customer Protection — up to Rs. 20,000</h4>
+            <h4 className="font-black text-base">Needlyy Payment Protection</h4>
             <p className="text-sm text-muted-foreground mt-1">
-              If a verified booking doesn't go as planned, we step in. Report a dispute within 3 days of service completion and our team handles it — no hassle, no stress.
+              If a verified booking doesn't go as planned, we step in. Your online payment stays on hold until you confirm the job is done. Raise a dispute within 7 days of completion and our team reviews it.
             </p>
           </div>
-          <Link to="/about" className="shrink-0 text-sm font-bold text-primary hover:underline">
+          <Link to="/refund-policy" className="shrink-0 text-sm font-bold text-primary hover:underline">
             Learn more <i className="fas fa-arrow-right text-xs" />
           </Link>
         </div>
