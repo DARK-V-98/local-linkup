@@ -505,7 +505,8 @@ export default function ServiceDetail() {
                     <span className="text-xs text-muted-foreground leading-relaxed">
                       I agree to the{" "}
                       <Link to="/terms" className="text-primary font-semibold hover:underline" target="_blank">booking terms</Link>
-                      {" "}and understand the cancellation policy.
+                      {" "}and the{" "}
+                      <Link to="/refund-policy" className="text-primary font-semibold hover:underline" target="_blank">refund & cancellation policy</Link>.
                     </span>
                   </label>
 

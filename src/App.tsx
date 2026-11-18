@@ -28,6 +28,9 @@ const About = lazy(() => import("./pages/About.tsx"));
 const Contact = lazy(() => import("./pages/Contact.tsx"));
 const Terms = lazy(() => import("./pages/Terms.tsx"));
 const Privacy = lazy(() => import("./pages/Privacy.tsx"));
+const RefundPolicy = lazy(() => import("./pages/RefundPolicy.tsx"));
+const ServiceDelivery = lazy(() => import("./pages/ServiceDelivery.tsx"));
+const PaymentSecurity = lazy(() => import("./pages/PaymentSecurity.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 const AdminDashboard = lazy(() => import("./pages/dashboard/AdminDashboard.tsx"));
 const SellerDashboard = lazy(() => import("./pages/dashboard/SellerDashboard.tsx"));
@@ -104,6 +107,9 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/refund-policy" element={<RefundPolicy />} />
+              <Route path="/service-delivery" element={<ServiceDelivery />} />
+              <Route path="/payment-security" element={<PaymentSecurity />} />
               <Route path="/login" element={<Login />} />
               <Route path="/admin" element={admin(<AdminDashboard />)} />
               <Route path="/dashboard/buyer" element={buyer(<BuyerDashboard />)} />

@@ -130,9 +130,11 @@ export default function Footer() {
           {
             title: "Legal",
             links: [
-              ["Terms of Service", "/terms"],
+              ["Terms & Conditions", "/terms"],
               ["Privacy Policy", "/privacy"],
-              ["Trust & Safety", "/about"],
+              ["Refund & Cancellation", "/refund-policy"],
+              ["Service Delivery", "/service-delivery"],
+              ["Payment & Security", "/payment-security"],
             ],
           },
         ].map((col) => (
